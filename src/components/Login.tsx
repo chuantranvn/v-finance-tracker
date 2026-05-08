@@ -26,20 +26,35 @@ export default function Login() {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    if (!recaptchaVerifier && recaptchaRef.current) {
-        const verifier = new RecaptchaVerifier(auth, recaptchaRef.current, {
-            size: 'invisible',
-            callback: () => {
-                console.log('Recaptcha resolved');
-            }
-        });
-        setRecaptchaVerifier(verifier);
-    }
+    if (typeof window === 'undefined' || !recaptchaRef.current || recaptchaVerifier) return;
+
+    let verifier: RecaptchaVerifier | null = null;
     
-    return () => {
-        if (recaptchaVerifier) {
-            recaptchaVerifier.clear();
+    try {
+      verifier = new RecaptchaVerifier(auth, recaptchaRef.current, {
+        size: 'invisible',
+        callback: () => {
+          console.log('Recaptcha resolved');
+        },
+        'expired-callback': () => {
+          console.log('Recaptcha expired');
+          if (verifier) verifier.render();
         }
+      });
+      
+      setRecaptchaVerifier(verifier);
+    } catch (err) {
+      console.error('Recaptcha init error:', err);
+    }
+
+    return () => {
+      if (verifier) {
+        try {
+          verifier.clear();
+        } catch (e) {
+          // Ignore
+        }
+      }
     };
   }, [recaptchaVerifier]);
 
@@ -48,17 +63,28 @@ export default function Login() {
     setError(null);
     
     // Clean phone number
-    let cleanPhone = phoneNumber.replace(/\s+/g, '');
+    let cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    
+    // Basic length validation to prevent TOO_LONG
+    if (cleanPhone.length < 9) {
+      setError('Số điện thoại quá ngắn (tối thiểu 9 số).');
+      return;
+    }
+    if (cleanPhone.length > 11) {
+      setError('Số điện thoại quá dài (tối đa 11 số).');
+      return;
+    }
+
     if (cleanPhone.startsWith('0')) {
         cleanPhone = '+84' + cleanPhone.slice(1);
-    } else if (cleanPhone.startsWith('84') && !cleanPhone.startsWith('+')) {
+    } else if (cleanPhone.startsWith('84')) {
         cleanPhone = '+' + cleanPhone;
-    } else if (!cleanPhone.startsWith('+')) {
+    } else {
         cleanPhone = '+84' + cleanPhone;
     }
 
     if (!recaptchaVerifier) {
-        setError('Lỗi khởi tạo bảo mật. Vui lòng thử lại.');
+        setError('Lỗi khởi tạo bảo mật. Vui lòng làm mới trang.');
         return;
     }
 
@@ -68,13 +94,17 @@ export default function Login() {
         setConfirmationResult(result);
         setStep('otp');
     } catch (err: any) {
-        console.error(err);
-        if (err.code === 'auth/invalid-phone-number') {
-            setError('Số điện thoại không hợp lệ.');
+        console.error("SMS Auth Error:", err);
+        if (err.code === 'auth/invalid-phone-number' || err.code === 'auth/invalid-app-credential') {
+            setError('Số điện thoại không hợp lệ hoặc cấu hình xác thực chưa đúng.');
         } else if (err.code === 'auth/too-many-requests') {
             setError('Quá nhiều yêu cầu. Vui lòng thử lại sau.');
+        } else if (err.code === 'auth/billing-not-enabled') {
+            setError('Dịch vụ gửi SMS tạm thời gián đoạn (Yêu cầu nâng cấp gói Firebase). Vui lòng liên hệ quản trị viên.');
+        } else if (err.message?.includes('TOO_LONG')) {
+            setError('Số điện thoại không hợp lệ (quá dài).');
         } else {
-            setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+            setError('Đã có lỗi xảy ra khi gửi mã. Vui lòng thử lại.');
         }
     } finally {
         setLoading(false);

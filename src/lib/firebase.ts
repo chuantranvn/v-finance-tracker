@@ -1,25 +1,65 @@
+"use client";
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
+
+// Standard import for Next.js JSON support
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+// Get the actual config object
+const config = (firebaseConfig as any).default || firebaseConfig;
 
-// Connectivity check
-if (typeof window !== 'undefined') {
-  async function testConnection() {
-    try {
-      await getDocFromServer(doc(db, 'test', 'connection'));
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('the client is offline')) {
-        console.warn("Firebase: Client appears to be offline or configuration is incorrect.");
-      }
+let appInstance: any;
+let authInstance: Auth | null = null;
+let dbInstance: Firestore | null = null;
+
+const getAppInstance = () => {
+  if (typeof window === 'undefined') return null;
+  if (!appInstance) {
+    appInstance = getApps().length > 0 ? getApp() : initializeApp(config);
+  }
+  return appInstance;
+};
+
+export const getFirebaseAuth = () => {
+  if (typeof window === 'undefined') return null;
+  if (!authInstance) {
+    const app = getAppInstance();
+    if (app) {
+      authInstance = getAuth(app);
     }
   }
-  testConnection();
+  return authInstance;
+};
+
+export const getFirebaseDB = () => {
+  if (typeof window === 'undefined') return null;
+  if (!dbInstance) {
+    const app = getAppInstance();
+    if (app) {
+      dbInstance = getFirestore(app, config.firestoreDatabaseId);
+    }
+  }
+  return dbInstance;
+};
+
+// Compatibility exports
+export const auth = (typeof window !== 'undefined' ? getFirebaseAuth() : null) as unknown as Auth;
+export const db = (typeof window !== 'undefined' ? getFirebaseDB() : null) as unknown as Firestore;
+
+// Connectivity check - only on client
+if (typeof window !== 'undefined') {
+  const checkConnection = async () => {
+    const database = getFirebaseDB();
+    if (!database) return;
+    try {
+      await getDocFromServer(doc(database, 'test', 'connection'));
+    } catch (error) {
+      // Ignore common errors, just a silent check
+    }
+  };
+  checkConnection();
 }
 
 export enum OperationType {
@@ -49,15 +89,18 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const currentAuth = typeof window !== 'undefined' ? getFirebaseAuth() : null;
+  const user = currentAuth?.currentUser;
+
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+      userId: user?.uid,
+      email: user?.email,
+      emailVerified: user?.emailVerified,
+      isAnonymous: user?.isAnonymous,
+      tenantId: user?.tenantId,
+      providerInfo: user?.providerData?.map(provider => ({
         providerId: provider.providerId,
         email: provider.email,
       })) || []

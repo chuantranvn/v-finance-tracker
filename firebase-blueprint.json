@@ -29,6 +29,36 @@
         "timestamp": { "type": "number" }
       },
       "required": ["userId", "symbol"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "Represents a social media post or article.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string", "description": "The UID of the user who created the article." },
+        "authorPhone": { "type": "string" },
+        "content": { "type": "string", "description": "The main text body of the article." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" }
+      },
+      "required": ["authorId", "content", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on an article or a reply to another comment.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorPhone": { "type": "string" },
+        "content": { "type": "string" },
+        "parentId": { "type": "string", "description": "ID of the parent comment if this is a reply." },
+        "replyToId": { "type": "string", "description": "UID of the user being replied to for tagging." },
+        "replyToPhone": { "type": "string", "description": "Phone of the user being replied to for tagging display." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "content", "createdAt"]
     }
   },
   "firestore": {
@@ -39,6 +69,22 @@
     "users/{userId}/bookmarks/{bookmarkId}": {
       "schema": "Bookmark",
       "description": "Stocks bookmarked by a specific user."
+    },
+    "articles/{articleId}": {
+      "schema": "Article",
+      "description": "Global collection of articles/posts."
+    },
+    "articles/{articleId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments and replies on an article."
+    },
+    "articles/{articleId}/likes/{userId}": {
+      "schema": "object",
+      "description": "Tracks which users liked the article."
+    },
+    "articles/{articleId}/comments/{commentId}/likes/{userId}": {
+      "schema": "object",
+      "description": "Tracks which users liked the comment."
     }
   }
 }

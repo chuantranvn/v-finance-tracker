@@ -24,6 +24,8 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'phoneNumber']) &&
              data.uid is string && data.uid.size() <= 128 &&
              data.phoneNumber is string && data.phoneNumber.size() <= 20 &&
+             (data.get('displayName', '') is string && data.get('displayName', '').size() <= 100) &&
+             (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 1000000) && // Allow large base64
              data.uid == request.auth.uid; // Identity Integrity
     }
 
@@ -35,10 +37,73 @@ service cloud.firestore {
              (data.get('avgPrice', 0) is number);
     }
 
+    function isValidArticle(data) {
+      return data.keys().hasAll(['authorId', 'content', 'createdAt']) &&
+             data.authorId is string && data.authorId.size() <= 128 &&
+             data.content is string && data.content.size() <= 5000 &&
+             (data.get('likesCount', 0) is number) &&
+             (data.get('commentsCount', 0) is number) &&
+             (data.createdAt == request.time || (hasExisting() && data.createdAt == existing().createdAt));
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['authorId', 'content', 'createdAt']) &&
+             data.authorId is string && data.authorId.size() <= 128 &&
+             data.content is string && data.content.size() <= 1000 &&
+             (data.get('parentId', '') is string) &&
+             (data.get('replyToId', '') is string) &&
+             (data.get('replyToPhone', '') is string) &&
+             (data.get('likesCount', 0) is number) &&
+             (data.createdAt == request.time || (hasExisting() && data.createdAt == existing().createdAt));
+    }
+
+    function hasExisting() { return resource != null; }
+
     // --- Collection Matches ---
 
+    match /articles/{articleId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidArticle(incoming()) && incoming().authorId == request.auth.uid && isValidId(articleId);
+      allow update: if isSignedIn() && isValidArticle(incoming()) && incoming().authorId == existing().authorId && (
+        // Action: Edit Article (Owner only)
+        (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']) && incoming().updatedAt == request.time) ||
+        // Action: Increment Comment Count (Anyone)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount']) && incoming().commentsCount == existing().get('commentsCount', 0) + 1) ||
+        // Action: Like/Unlike (Anyone)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && (
+          (incoming().likesCount == existing().get('likesCount', 0) + 1 && existsAfter(/databases/$(database)/documents/articles/$(articleId)/likes/$(request.auth.uid))) ||
+          (incoming().likesCount == existing().get('likesCount', 0) - 1 && !existsAfter(/databases/$(database)/documents/articles/$(articleId)/likes/$(request.auth.uid)))
+        ))
+      );
+      allow delete: if isOwner(existing().authorId) || isAdmin();
+
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isOwner(userId);
+      }
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && isValidComment(incoming()) && incoming().authorId == request.auth.uid && isValidId(commentId);
+        allow update: if isSignedIn() && isValidComment(incoming()) && incoming().authorId == existing().authorId && (
+          (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']) && incoming().updatedAt == request.time) ||
+          // Action: Like/Unlike Comment (Anyone)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && (
+            (incoming().likesCount == existing().get('likesCount', 0) + 1 && existsAfter(/databases/$(database)/documents/articles/$(articleId)/comments/$(commentId)/likes/$(request.auth.uid))) ||
+            (incoming().likesCount == existing().get('likesCount', 0) - 1 && !existsAfter(/databases/$(database)/documents/articles/$(articleId)/comments/$(commentId)/likes/$(request.auth.uid)))
+          ))
+        );
+        allow delete: if isOwner(existing().authorId) || isAdmin();
+
+        match /likes/{userId} {
+          allow read: if isSignedIn();
+          allow create, delete: if isOwner(userId);
+        }
+      }
+    }
+
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if isSignedIn();
       allow list: if isAdmin(); // Users cannot list other users
       
       allow create: if isOwner(userId) && isValidUser(incoming());

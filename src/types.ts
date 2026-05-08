@@ -9,3 +9,15 @@ export interface BookmarkData {
   currentPrice: number; // in VND
   timestamp: number;
 }
+
+export interface ArticleData {
+  id: string;
+  authorId: string;
+  authorPhone: string;
+  content: string;
+  createdAt: any;
+  likesCount: number;
+  commentsCount: number;
+  isDeleted?: boolean;
+  sharedArticleId?: string | null;
+}

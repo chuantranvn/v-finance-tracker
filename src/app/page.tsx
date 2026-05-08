@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { BookmarkData } from '@/types';
+import { BookmarkData, ArticleData } from '@/types';
 import { fetchStockPrice } from '@/lib/stockService';
 import ConfirmModal from '@/components/ConfirmModal';
 import SaveBookmarkModal from '@/components/SaveBookmarkModal';
@@ -14,13 +14,20 @@ import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
+import UserMenu from '@/components/UserMenu';
+import NewsFeed from '@/components/NewsFeed';
+import CreateArticleModal from '@/components/CreateArticleModal';
+import MyActivityView from '@/components/MyActivityView';
+import Logo from '@/components/Logo';
+import { Plus } from 'lucide-react';
+
 export default function Page() {
   const { user, loading: authLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
   // Navigation state
   const [bookmarks, setBookmarks] = useState<BookmarkData[]>([]);
 
-  const [view, setView] = useState<'calc' | 'list'>('calc');
+  const [view, setView] = useState<'home' | 'calc' | 'list' | 'profile'>('home');
 
   // Calc state
   const [sharesInput, setSharesInput] = useState<string>('');
@@ -34,6 +41,8 @@ export default function Page() {
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isCreateArticleOpen, setIsCreateArticleOpen] = useState(false);
+  const [sharingArticle, setSharingArticle] = useState<ArticleData | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   // AI state
@@ -72,9 +81,6 @@ export default function Page() {
       if (saved) {
         const parsed = JSON.parse(saved);
         setBookmarks(parsed);
-        if (parsed.length > 0) {
-          setView('list');
-        }
       }
     } catch (e) {
       console.error("Failed to load bookmarks", e);
@@ -284,11 +290,20 @@ export default function Page() {
     });
   };
 
-  if (!mounted || authLoading) {
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-[#f5f5f7] flex flex-col items-center justify-center p-6">
         <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
         <p className="mt-4 font-medium text-gray-500">Đang khởi động...</p>
+      </div>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] flex flex-col items-center justify-center p-6">
+        <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+        <p className="mt-4 font-medium text-gray-500">Đang kiểm tra tài khoản...</p>
       </div>
     );
   }
@@ -302,45 +317,78 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans flex flex-col items-center p-4 md:p-6">
-      <div className="w-full max-w-4xl flex items-center justify-between mb-8 px-2">
-        <h1 className="text-xl font-bold tracking-tight">V-Stock Social</h1>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
-            <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-              <UserIcon className="w-5 h-5" />
-            </div>
-            <span className="text-sm font-medium text-gray-700 hidden sm:inline">
-              {user.phoneNumber}
-            </span>
-            <button 
-              onClick={handleSignOut}
-              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-              title="Đăng xuất"
+    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans flex flex-col items-center">
+      {/* Sticky Top Navigation */}
+      <div className="sticky top-0 z-50 w-full bg-[#f5f5f7]/80 backdrop-blur-md border-b border-gray-100 flex justify-center">
+        <div className="w-full max-w-[1400px] flex items-center justify-between py-4 px-4 md:px-8">
+          <div 
+            className="flex items-center cursor-pointer transition-transform active:scale-95"
+            onClick={() => {
+              setView('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            <Logo className="w-32 h-auto md:w-44 md:h-auto" />
+          </div>
+          
+          <div className="flex items-center gap-2 md:gap-4">
+            <button
+              onClick={() => setIsCreateArticleOpen(true)}
+              className="p-3 md:p-3.5 bg-white text-blue-600 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex items-center justify-center active:scale-95"
+              title="Đăng bài mới"
             >
-              <LogOut className="w-4 h-4" />
+              <Plus className="w-5 h-5" />
             </button>
+
+            <UserMenu 
+              uid={user.uid}
+              phoneNumber={user.phoneNumber}
+              onSignOut={handleSignOut}
+              onShowHome={() => {
+                setView('home');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowInfo={() => {
+                setView('profile');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
           </div>
         </div>
       </div>
 
-      <div className="w-full flex-1 flex items-center justify-center">
-        {view === 'list' && (
-            <BookmarksList
-              bookmarks={bookmarks}
-              isSelectionMode={isSelectionMode}
-              selectedIds={selectedIds}
-              setIsSelectionMode={setIsSelectionMode}
-              setSelectedIds={setSelectedIds}
-              onDeleteSelected={handleDeleteSelected}
-              onDeleteAll={handleDeleteAll}
-              onDeleteSingle={handleDeleteBookmark}
-              onAddNew={resetCalcAndGoToNew}
-              onLoadBookmark={handleLoadBookmark}
-              onToggleAutoUpdate={handleToggleAutoUpdate}
-              onToggleHide={handleToggleHideBookmark}
-              onUpdatePrice={handleUpdatePrice}
-            />
+      {/* Main Content Area */}
+      <div className="w-full flex-1 flex flex-col items-center p-4 md:p-6">
+        {view === 'home' && (
+          <NewsFeed 
+            onShareArticle={(article) => {
+              setSharingArticle(article);
+              setIsCreateArticleOpen(true);
+            }} 
+          />
+        )}
+        
+        {view === 'profile' && (
+          <MyActivityView 
+            onBack={() => setView('home')} 
+            bookmarks={bookmarks}
+            isSelectionMode={isSelectionMode}
+            selectedIds={selectedIds}
+            setIsSelectionMode={setIsSelectionMode}
+            setSelectedIds={setSelectedIds}
+            onDeleteSelected={handleDeleteSelected}
+            onDeleteAll={handleDeleteAll}
+            onDeleteSingle={handleDeleteBookmark}
+            onAddNew={resetCalcAndGoToNew}
+            onLoadBookmark={handleLoadBookmark}
+            onToggleAutoUpdate={handleToggleAutoUpdate}
+            onToggleHide={handleToggleHideBookmark}
+            onUpdatePrice={handleUpdatePrice}
+            onShareArticle={(article) => {
+              setSharingArticle(article);
+              setIsCreateArticleOpen(true);
+            }}
+          />
         )}
 
         {view === 'calc' && (
@@ -386,6 +434,30 @@ export default function Page() {
           </>
         )}
       </div>
+
+      <CreateArticleModal 
+        isOpen={isCreateArticleOpen}
+        sharedArticle={sharingArticle}
+        onClose={() => {
+          setIsCreateArticleOpen(false);
+          setSharingArticle(null);
+        }}
+        onSuccess={() => {
+          // Force refresh NewsFeed by toggling view briefly
+          if (view === 'home') {
+            setView('list');
+            setTimeout(() => {
+              setView('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 10);
+          } else {
+            setView('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+          setIsCreateArticleOpen(false);
+          setSharingArticle(null);
+        }}
+      />
 
       {/* Global Confirm Modal Overlay */}
       <ConfirmModal
