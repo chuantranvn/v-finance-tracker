@@ -1,0 +1,6 @@
+{
+  "name": "V-Finance Tracker",
+  "description": "A comprehensive financial dashboard for tracking Vietnamese stocks (HOSE, HNX, UPCoM), cryptocurrencies, and gold prices with real-time charts and news.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
