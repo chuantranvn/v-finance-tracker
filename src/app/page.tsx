@@ -8,7 +8,7 @@ import SaveBookmarkModal from '@/components/SaveBookmarkModal';
 import BookmarksList from '@/components/BookmarksList';
 import Calculator from '@/components/Calculator';
 
-export default function App() {
+export default function Page() {
   const [mounted, setMounted] = useState(false);
   // Navigation state
   const [bookmarks, setBookmarks] = useState<BookmarkData[]>([]);
@@ -245,7 +245,6 @@ export default function App() {
     ));
   };
 
-  // Background updates handled by cards directly now
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans flex items-center justify-center p-4 md:p-6">

@@ -7,8 +7,21 @@ export interface StockData {
 }
 
 export async function fetchStockPrice(symbol: string): Promise<StockData | null> {
+  if (typeof window === 'undefined') return null;
+  if (!symbol || typeof symbol !== 'string') return null;
+  
   try {
-    const response = await fetch(`/api/stock/${symbol.toUpperCase()}`);
+    const cleanSymbol = symbol.trim().toUpperCase();
+    if (!cleanSymbol) return null;
+
+    const url = `https://iboard-query.ssi.com.vn/stock/${cleanSymbol}?boardId=MAIN`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+    
     if (!response.ok) return null;
 
     const json = await response.json();
