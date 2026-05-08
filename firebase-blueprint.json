@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user in the system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID from Firebase Auth." },
+        "phoneNumber": { "type": "string", "description": "The user's verified phone number." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "photoURL": { "type": "string", "description": "URL to the user's profile picture." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "phoneNumber"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "A saved stock symbol for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The user who owns this bookmark." },
+        "symbol": { "type": "string" },
+        "companyName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "avgPrice": { "type": "number" },
+        "autoUpdate": { "type": "boolean" },
+        "isVisible": { "type": "boolean" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["userId", "symbol"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Primary user profile document."
+    },
+    "users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "Stocks bookmarked by a specific user."
+    }
+  }
+}

@@ -1,9 +1,10 @@
 import "./globals.css";
 import React from "react";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata = {
-  title: "React Example",
-  description: "Next.js App",
+  title: "V-Stock Social",
+  description: "Stock tracking and social features",
 };
 
 export default function RootLayout({
@@ -12,8 +13,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="vi">
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }

@@ -7,8 +7,15 @@ import ConfirmModal from '@/components/ConfirmModal';
 import SaveBookmarkModal from '@/components/SaveBookmarkModal';
 import BookmarksList from '@/components/BookmarksList';
 import Calculator from '@/components/Calculator';
+import Login from '@/components/Login';
+import { useAuth } from '@/components/AuthProvider';
+import { LogOut, User as UserIcon } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function Page() {
+  const { user, loading: authLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
   // Navigation state
   const [bookmarks, setBookmarks] = useState<BookmarkData[]>([]);
@@ -34,6 +41,28 @@ export default function Page() {
   const [stockSymbolAI, setStockSymbolAI] = useState('');
   const [isAILoading, setIsAILoading] = useState(false);
   const [companyName, setCompanyName] = useState('');
+
+  // Profile sync with Firestore
+  useEffect(() => {
+    const syncProfile = async () => {
+      if (user && mounted) {
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            uid: user.uid,
+            phoneNumber: user.phoneNumber,
+            displayName: user.displayName || `User ${user.uid.slice(0, 4)}`,
+            photoURL: user.photoURL || '',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    };
+    syncProfile();
+  }, [user, mounted]);
 
   // Initial load
   useEffect(() => {
@@ -245,85 +274,126 @@ export default function Page() {
     ));
   };
 
+  const handleSignOut = async () => {
+    setConfirmDialog({
+      message: 'Bạn có chắc chắn muốn đăng xuất?',
+      onConfirm: async () => {
+        await signOut(auth);
+        setConfirmDialog(null);
+      }
+    });
+  };
+
+  if (!mounted || authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] flex flex-col items-center justify-center p-6">
+        <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+        <p className="mt-4 font-medium text-gray-500">Đang khởi động...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center p-6">
+        <Login />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans flex items-center justify-center p-4 md:p-6">
-      {!mounted ? (
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
-          <p className="font-medium text-gray-500">Đang khởi động...</p>
+    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans flex flex-col items-center p-4 md:p-6">
+      <div className="w-full max-w-4xl flex items-center justify-between mb-8 px-2">
+        <h1 className="text-xl font-bold tracking-tight">V-Stock Social</h1>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
+            <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-medium text-gray-700 hidden sm:inline">
+              {user.phoneNumber}
+            </span>
+            <button 
+              onClick={handleSignOut}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              title="Đăng xuất"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      ) : (
-        <>
-          {view === 'list' && (
-              <BookmarksList
-                bookmarks={bookmarks}
-                isSelectionMode={isSelectionMode}
-                selectedIds={selectedIds}
-                setIsSelectionMode={setIsSelectionMode}
-                setSelectedIds={setSelectedIds}
-                onDeleteSelected={handleDeleteSelected}
-                onDeleteAll={handleDeleteAll}
-                onDeleteSingle={handleDeleteBookmark}
-                onAddNew={resetCalcAndGoToNew}
-                onLoadBookmark={handleLoadBookmark}
-                onToggleAutoUpdate={handleToggleAutoUpdate}
-                onToggleHide={handleToggleHideBookmark}
-                onUpdatePrice={handleUpdatePrice}
-              />
-          )}
+      </div>
 
-          {view === 'calc' && (
-            <>
-              <Calculator
-                sharesInput={sharesInput}
-                setSharesInput={setSharesInput}
-                buyPrice={buyPrice}
-                setBuyPrice={setBuyPrice}
-                currentPrice={currentPrice}
-                setCurrentPrice={setCurrentPrice}
-                shares={shares}
-                totalInvestment={totalInvestment}
-                currentValue={currentValue}
-                profit={profit}
-                profitPercent={profitPercent}
-                isNeutral={isNeutral}
-                isAutoPrice={isAutoPrice}
-                setIsAutoPrice={setIsAutoPrice}
-                stockSymbolAI={stockSymbolAI}
-                setStockSymbolAI={setStockSymbolAI}
-                isAILoading={isAILoading}
-                companyName={companyName}
-                handleAIGetPrice={handleAIGetPrice}
-                editingBookmarkId={editingBookmarkId}
-                editingSymbol={editingSymbol}
-                setEditingSymbol={setEditingSymbol}
-                onBack={() => setView('list')}
-                onUpdateBookmark={handleUpdateBookmark}
-                onSaveBookmarkClick={() => setIsSaveModalOpen(true)}
-              />
+      <div className="w-full flex-1 flex items-center justify-center">
+        {view === 'list' && (
+            <BookmarksList
+              bookmarks={bookmarks}
+              isSelectionMode={isSelectionMode}
+              selectedIds={selectedIds}
+              setIsSelectionMode={setIsSelectionMode}
+              setSelectedIds={setSelectedIds}
+              onDeleteSelected={handleDeleteSelected}
+              onDeleteAll={handleDeleteAll}
+              onDeleteSingle={handleDeleteBookmark}
+              onAddNew={resetCalcAndGoToNew}
+              onLoadBookmark={handleLoadBookmark}
+              onToggleAutoUpdate={handleToggleAutoUpdate}
+              onToggleHide={handleToggleHideBookmark}
+              onUpdatePrice={handleUpdatePrice}
+            />
+        )}
 
-              <SaveBookmarkModal
-                isOpen={isSaveModalOpen}
-                symbolInput={symbolInput}
-                setSymbolInput={setSymbolInput}
-                shares={shares}
-                buyPrice={buyPrice}
-                currentPrice={currentPrice}
-                onSave={handleSaveBookmark}
-                onClose={() => setIsSaveModalOpen(false)}
-              />
-            </>
-          )}
-          {/* Global Confirm Modal Overlay */}
-          <ConfirmModal
-            isOpen={confirmDialog !== null}
-            message={confirmDialog?.message || ''}
-            onConfirm={confirmDialog?.onConfirm || (() => {})}
-            onCancel={() => setConfirmDialog(null)}
-          />
-        </>
-      )}
+        {view === 'calc' && (
+          <>
+            <Calculator
+              sharesInput={sharesInput}
+              setSharesInput={setSharesInput}
+              buyPrice={buyPrice}
+              setBuyPrice={setBuyPrice}
+              currentPrice={currentPrice}
+              setCurrentPrice={setCurrentPrice}
+              shares={shares}
+              totalInvestment={totalInvestment}
+              currentValue={currentValue}
+              profit={profit}
+              profitPercent={profitPercent}
+              isNeutral={isNeutral}
+              isAutoPrice={isAutoPrice}
+              setIsAutoPrice={setIsAutoPrice}
+              stockSymbolAI={stockSymbolAI}
+              setStockSymbolAI={setStockSymbolAI}
+              isAILoading={isAILoading}
+              companyName={companyName}
+              handleAIGetPrice={handleAIGetPrice}
+              editingBookmarkId={editingBookmarkId}
+              editingSymbol={editingSymbol}
+              setEditingSymbol={setEditingSymbol}
+              onBack={() => setView('list')}
+              onUpdateBookmark={handleUpdateBookmark}
+              onSaveBookmarkClick={() => setIsSaveModalOpen(true)}
+            />
+
+            <SaveBookmarkModal
+              isOpen={isSaveModalOpen}
+              symbolInput={symbolInput}
+              setSymbolInput={setSymbolInput}
+              shares={shares}
+              buyPrice={buyPrice}
+              currentPrice={currentPrice}
+              onSave={handleSaveBookmark}
+              onClose={() => setIsSaveModalOpen(false)}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Global Confirm Modal Overlay */}
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        message={confirmDialog?.message || ''}
+        onConfirm={confirmDialog?.onConfirm || (() => {})}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 }
