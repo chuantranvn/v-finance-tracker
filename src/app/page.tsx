@@ -99,7 +99,7 @@ export default function Page() {
     if (!symbolInput.trim()) return;
 
     const newBookmark: BookmarkData = {
-      id: crypto.randomUUID(),
+      id: mounted ? crypto.randomUUID() : Math.random().toString(36).substring(2),
       symbol: symbolInput.trim().toUpperCase(),
       companyName: companyName || symbolInput.trim().toUpperCase(),
       autoUpdate: true,
