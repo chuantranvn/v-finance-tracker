@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { Trash2, Check, EyeOff, Eye } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { BookmarkData } from '@/types';
 import { fetchStockPrice } from '@/lib/stockService';
