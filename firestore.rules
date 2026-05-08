@@ -51,8 +51,10 @@ service cloud.firestore {
              data.authorId is string && data.authorId.size() <= 128 &&
              data.content is string && data.content.size() <= 1000 &&
              (data.get('parentId', '') is string) &&
+             (data.get('authorName', '') is string) &&
              (data.get('replyToId', '') is string) &&
              (data.get('replyToPhone', '') is string) &&
+             (data.get('replyToName', '') is string) &&
              (data.get('likesCount', 0) is number) &&
              (data.createdAt == request.time || (hasExisting() && data.createdAt == existing().createdAt));
     }

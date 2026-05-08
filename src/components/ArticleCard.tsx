@@ -138,9 +138,9 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
   }, []);
 
   const date = useMemo(() => {
-    if (!article.createdAt) return new Date();
+    if (!isMounted || !article.createdAt) return null;
     return article.createdAt.toDate ? article.createdAt.toDate() : new Date(initialArticle.createdAt?.seconds * 1000 || Date.now());
-  }, [article.createdAt, initialArticle.createdAt]);
+  }, [article.createdAt, initialArticle.createdAt, isMounted]);
 
   if (article.isDeleted) return null;
 
@@ -159,12 +159,12 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
               fallbackPhone={article.authorPhone} 
               size="lg"
             />
-              {isMounted ? (
+              {isMounted && date ? (
                 <span className="text-xs text-gray-400 ml-12">
                   {formatDistanceToNow(date, { addSuffix: true, locale: vi })}
                 </span>
               ) : (
-                <span className="text-xs text-gray-400 ml-12">Đang tải...</span>
+                <span className="text-xs text-gray-400 ml-12 opacity-0">.</span>
               )}
           </div>
           

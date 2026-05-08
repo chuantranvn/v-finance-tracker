@@ -4,20 +4,23 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 
-// Standard import for Next.js JSON support
-import firebaseConfig from '../../firebase-applet-config.json';
+// Safely handle the config
+import configData from '../../firebase-applet-config.json';
 
-// Get the actual config object
-const config = (firebaseConfig as any).default || firebaseConfig;
+const config = (configData as any).default || configData;
 
-let appInstance: any;
+let appInstance: any = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
 
 const getAppInstance = () => {
   if (typeof window === 'undefined') return null;
   if (!appInstance) {
-    appInstance = getApps().length > 0 ? getApp() : initializeApp(config);
+    try {
+      appInstance = getApps().length > 0 ? getApp() : initializeApp(config);
+    } catch (e) {
+      console.error("Firebase init error:", e);
+    }
   }
   return appInstance;
 };
@@ -44,7 +47,8 @@ export const getFirebaseDB = () => {
   return dbInstance;
 };
 
-// Compatibility exports
+// Aliases for legacy code - safely handles server-side execution
+// We cast these to satisfy TypeScript, but they will be null on server
 export const auth = (typeof window !== 'undefined' ? getFirebaseAuth() : null) as unknown as Auth;
 export const db = (typeof window !== 'undefined' ? getFirebaseDB() : null) as unknown as Firestore;
 

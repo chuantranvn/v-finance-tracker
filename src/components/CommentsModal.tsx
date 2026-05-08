@@ -22,17 +22,19 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
 import { cn } from '@/lib/utils';
 import AuthorInfo from './AuthorInfo';
-import { getDisplayName } from '@/lib/userUtils';
+import { getDisplayName, maskPhone } from '@/lib/userUtils';
 import { handleFirestoreError, OperationType } from '@/lib/firebase';
 
 interface CommentData {
   id: string;
   authorId: string;
   authorPhone: string;
+  authorName?: string;
   content: string;
   parentId?: string;
   replyToId?: string;
   replyToPhone?: string;
+  replyToName?: string;
   likesCount?: number;
   createdAt: any;
 }
@@ -51,6 +53,7 @@ const CommentItem = ({
   const [localComment, setLocalComment] = useState<CommentData>(comment);
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [replyToDisplayName, setReplyToDisplayName] = useState(comment.replyToName || maskPhone(comment.replyToPhone));
 
   useEffect(() => {
     // Subscribe to comment changes for real-time counts
@@ -71,6 +74,22 @@ const CommentItem = ({
     });
     return () => unsubscribe();
   }, [user, articleId, comment.id]);
+
+  useEffect(() => {
+    if (localComment.replyToId && !localComment.replyToName) {
+      const userRef = doc(db, 'users', localComment.replyToId);
+      const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          setReplyToDisplayName(getDisplayName({ 
+            displayName: userData.displayName, 
+            phoneNumber: userData.phoneNumber || localComment.replyToPhone 
+          }));
+        }
+      });
+      return () => unsubscribeUser();
+    }
+  }, [localComment.replyToId, localComment.replyToName, localComment.replyToPhone]);
 
   const handleLike = async () => {
     if (!user || isLiking) return;
@@ -113,10 +132,14 @@ const CommentItem = ({
             isReply ? "bg-blue-50/50 border border-blue-100/50" : "bg-gray-100"
           )}>
             <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
-              {localComment.replyToPhone && isReply && (
-                <span className="text-blue-600 font-bold mr-1">@{localComment.replyToPhone}</span>
+              {isReply && (replyToDisplayName || localComment.replyToPhone) && (
+                <span className="text-blue-600 font-bold mr-1">
+                  @{replyToDisplayName || localComment.replyToPhone}
+                </span>
               )}
-              {isReply ? localComment.content.replace(`@${localComment.replyToPhone} `, '') : localComment.content}
+              {isReply ? 
+                localComment.content.replace(`@${localComment.replyToPhone} `, '').replace(`@${replyToDisplayName} `, '') : 
+                localComment.content}
             </p>
           </div>
           <div className="flex items-center gap-4 mt-1 ml-1 flex-wrap">
@@ -195,6 +218,7 @@ export default function CommentsModal({ isOpen, onClose, articleId }: CommentsMo
       const commentPayload: any = {
         authorId: user.uid,
         authorPhone: user.phoneNumber,
+        authorName: user.displayName || getDisplayName(user as any),
         content: newComment.trim(),
         createdAt: serverTimestamp(),
         likesCount: 0,
@@ -204,6 +228,13 @@ export default function CommentsModal({ isOpen, onClose, articleId }: CommentsMo
         commentPayload.parentId = replyingTo.parentId || replyingTo.id;
         commentPayload.replyToId = replyingTo.authorId;
         commentPayload.replyToPhone = replyingTo.authorPhone;
+        
+        // We need to fetch the display name of the person we're replying to if it's not and @ mention in the string
+        // Actually, let's just store what was used in the mention
+        const mentionMatch = newComment.match(/^@([^ ]+) /);
+        if (mentionMatch) {
+          commentPayload.replyToName = mentionMatch[1];
+        }
       }
 
       await addDoc(commentsRef, commentPayload);
@@ -222,7 +253,16 @@ export default function CommentsModal({ isOpen, onClose, articleId }: CommentsMo
 
   const handleReply = (comment: CommentData) => {
     setReplyingTo(comment);
-    setNewComment(`@${comment.authorPhone} `);
+    // Get display name for mention
+    const userRef = doc(db, 'users', comment.authorId);
+    getDocs(query(collection(db, 'users'))).then(() => {
+      // Small hack to get user data if it's already in cache or just use AuthorInfo logic
+    });
+    
+    // We'll use a simpler approach: get the name from the AuthorInfo/User state if possible
+    // For now, let's just use the current comment's authorPhone and if we can find a better way we will
+    const name = comment.authorName || maskPhone(comment.authorPhone);
+    setNewComment(`@${name} `);
     inputRef.current?.focus();
   };
 
@@ -297,7 +337,7 @@ export default function CommentsModal({ isOpen, onClose, articleId }: CommentsMo
                 <div className="flex items-center justify-between mb-2 px-3 py-1.5 bg-blue-50 rounded-lg text-xs text-blue-600 font-medium">
                   <div className="flex items-center gap-1">
                     <CornerDownRight className="w-3 h-3" />
-                    Đang trả lời @{replyingTo.authorPhone}
+                    Đang trả lời @{replyingTo.authorName || maskPhone(replyingTo.authorPhone)}
                   </div>
                   <button onClick={() => setReplyingTo(null)} className="hover:text-blue-800">
                     <X className="w-3 h-3" />

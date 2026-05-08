@@ -52,10 +52,12 @@
       "properties": {
         "authorId": { "type": "string" },
         "authorPhone": { "type": "string" },
+        "authorName": { "type": "string" },
         "content": { "type": "string" },
         "parentId": { "type": "string", "description": "ID of the parent comment if this is a reply." },
         "replyToId": { "type": "string", "description": "UID of the user being replied to for tagging." },
         "replyToPhone": { "type": "string", "description": "Phone of the user being replied to for tagging display." },
+        "replyToName": { "type": "string", "description": "Name of the user being replied to for tagging display." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["authorId", "content", "createdAt"]
