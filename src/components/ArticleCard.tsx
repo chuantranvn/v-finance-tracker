@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, Heart, Share2, MoreHorizontal, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { MessageCircle, Heart, Share2, MoreHorizontal, Loader2, Edit2, Trash2, EyeOff, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
 import CommentsModal from './CommentsModal';
@@ -24,6 +24,7 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isHiding, setIsHiding] = useState(false);
   const [sharedArticleContent, setSharedArticleContent] = useState<ArticleData | null>(null);
   const [isSharedArticleLoading, setIsSharedArticleLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -105,6 +106,24 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
     }
   };
 
+  const handleToggleHide = async () => {
+    if (!isAuthor || isHiding) return;
+    setIsHiding(true);
+    try {
+      const articleRef = doc(db, 'articles', article.id);
+      await updateDoc(articleRef, {
+        isHidden: !article.isHidden,
+        updatedAt: new Date()
+      });
+      setShowMenu(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `articles/${article.id}`);
+      alert("Không thể thay đổi trạng thái ẩn hiện. Vui lòng thử lại.");
+    } finally {
+      setIsHiding(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!isAuthor || isDeleting) return;
     if (!confirm("Bạn có chắc chắn muốn xoá bài viết này?")) return;
@@ -160,9 +179,17 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
               size="lg"
             />
               {isMounted && date ? (
-                <span className="text-xs text-gray-400 ml-12">
-                  {formatDistanceToNow(date, { addSuffix: true, locale: vi })}
-                </span>
+                <div className="flex items-center gap-2 ml-12">
+                  <span className="text-xs text-gray-400">
+                    {formatDistanceToNow(date, { addSuffix: true, locale: vi })}
+                  </span>
+                  {article.isHidden && isAuthor && (
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                      <EyeOff className="w-2.5 h-2.5" />
+                      Ẩn
+                    </span>
+                  )}
+                </div>
               ) : (
                 <span className="text-xs text-gray-400 ml-12 opacity-0">.</span>
               )}
@@ -196,6 +223,27 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
                         <Edit2 className="w-4 h-4 text-blue-500" />
                         Chỉnh sửa
                       </button>
+
+                      <button 
+                        onClick={handleToggleHide}
+                        disabled={isHiding}
+                        className="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                      >
+                        {isHiding ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                        ) : article.isHidden ? (
+                          <>
+                            <Eye className="w-4 h-4 text-green-500" />
+                            Hiện trên trang chủ
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-4 h-4 text-orange-500" />
+                            Ẩn khỏi trang chủ
+                          </>
+                        )}
+                      </button>
+
                       <button 
                         onClick={handleDelete}
                         disabled={isDeleting}

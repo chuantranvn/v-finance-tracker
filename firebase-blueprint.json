@@ -41,7 +41,8 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "likesCount": { "type": "number" },
-        "commentsCount": { "type": "number" }
+        "commentsCount": { "type": "number" },
+        "isHidden": { "type": "boolean", "description": "Whether the article is hidden from the main home feed." }
       },
       "required": ["authorId", "content", "createdAt"]
     },

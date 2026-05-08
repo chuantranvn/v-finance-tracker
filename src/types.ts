@@ -19,5 +19,6 @@ export interface ArticleData {
   likesCount: number;
   commentsCount: number;
   isDeleted?: boolean;
+  isHidden?: boolean;
   sharedArticleId?: string | null;
 }

@@ -43,6 +43,7 @@ service cloud.firestore {
              data.content is string && data.content.size() <= 5000 &&
              (data.get('likesCount', 0) is number) &&
              (data.get('commentsCount', 0) is number) &&
+             (data.get('isHidden', false) is bool) &&
              (data.createdAt == request.time || (hasExisting() && data.createdAt == existing().createdAt));
     }
 
@@ -67,8 +68,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidArticle(incoming()) && incoming().authorId == request.auth.uid && isValidId(articleId);
       allow update: if isSignedIn() && isValidArticle(incoming()) && incoming().authorId == existing().authorId && (
-        // Action: Edit Article (Owner only)
-        (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']) && incoming().updatedAt == request.time) ||
+        // Action: Edit Article / Toggle Visibility (Owner only)
+        (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt', 'isHidden'])) ||
         // Action: Increment Comment Count (Anyone)
         (incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount']) && incoming().commentsCount == existing().get('commentsCount', 0) + 1) ||
         // Action: Like/Unlike (Anyone)

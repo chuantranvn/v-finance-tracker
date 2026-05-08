@@ -62,10 +62,13 @@ export default function NewsFeed({ onShareArticle }: NewsFeedProps) {
         ...doc.data()
       })) as ArticleData[];
 
+      // In home feed, filter out hidden articles
+      const filteredArticles = fetchedArticles.filter(a => !a.isHidden);
+
       if (isLoadMore) {
-        setArticles(prev => [...prev, ...fetchedArticles]);
+        setArticles(prev => [...prev, ...filteredArticles]);
       } else {
-        setArticles(fetchedArticles);
+        setArticles(filteredArticles);
       }
 
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
