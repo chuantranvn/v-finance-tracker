@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Bookmark, Trash2, ListChecks, Plus, EyeOff, Eye } from 'lucide-react';
 import { BookmarkData } from '@/types';
 import BookmarkCard from './BookmarkCard';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface BookmarksListProps {
   bookmarks: BookmarkData[];

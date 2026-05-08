@@ -4,6 +4,7 @@ const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  transpilePackages: ['motion', 'lucide-react'],
   images: {
     unoptimized: true,
   },

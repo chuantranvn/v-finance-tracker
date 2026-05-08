@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { Trash2, Check, EyeOff, Eye } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { BookmarkData } from '@/types';
 import { fetchStockPrice } from '@/lib/stockService';
@@ -40,10 +40,10 @@ export default function BookmarkCard({
       }
     };
 
-    // Polling every 10 seconds for more real-time experience if auto-update is on
-    const interval = setInterval(fetchPrice, 10000);
+    // Polling every 5 seconds for more real-time experience if auto-update is on
+    const interval = setInterval(fetchPrice, 5000);
     // Initial fetch if it's new/active
-    if (Date.now() - b.timestamp < 10000) {
+    if (Date.now() - b.timestamp < 5000) {
         fetchPrice();
     }
     
@@ -89,12 +89,20 @@ export default function BookmarkCard({
       
       <div className="flex items-start justify-between mb-6 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-black text-white rounded-[12px] flex items-center justify-center font-bold tracking-wider text-sm shadow-sm ring-1 ring-black/5">
+          <div className={cn(
+            "w-10 h-10 rounded-[12px] flex items-center justify-center font-bold tracking-wider text-sm shadow-sm transition-colors",
+            isNeut ? "bg-black text-white ring-1 ring-black/5" : 
+            isProf ? "bg-green-600 text-white ring-1 ring-green-700/10" : 
+            "bg-red-500 text-white ring-1 ring-red-600/10"
+          )}>
             {b.symbol.slice(0,3)}
           </div>
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-gray-900 text-lg leading-tight truncate">{b.symbol}</h3>
+              <h3 className={cn(
+                "font-bold text-lg leading-tight truncate",
+                isNeut ? "text-gray-900" : isProf ? "text-green-600" : "text-red-500"
+              )}>{b.symbol}</h3>
               {(!isSelectionMode) && (
                 <button
                   onClick={(e) => onToggleAutoUpdate(b.id, e)}
@@ -115,7 +123,7 @@ export default function BookmarkCard({
               )}
             </div>
             {b.companyName && b.companyName !== b.symbol && (
-              <p className="text-[11px] font-semibold text-gray-400 truncate pr-2">
+              <p className="text-[11px] font-semibold text-gray-400 break-words line-clamp-2 pr-1">
                 {b.companyName}
               </p>
             )}
