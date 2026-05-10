@@ -26,37 +26,54 @@ export default function Login() {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
+    // Avoid double initialization or running on server
     if (typeof window === 'undefined' || !recaptchaRef.current || recaptchaVerifier) return;
 
-    let verifier: RecaptchaVerifier | null = null;
-    
-    try {
-      verifier = new RecaptchaVerifier(auth, recaptchaRef.current, {
-        size: 'invisible',
-        callback: () => {
-          console.log('Recaptcha resolved');
-        },
-        'expired-callback': () => {
-          console.log('Recaptcha expired');
-          if (verifier) verifier.render();
-        }
-      });
-      
-      setRecaptchaVerifier(verifier);
-    } catch (err) {
-      console.error('Recaptcha init error:', err);
-    }
+    let verifierInstance: any = null;
+
+    const initRecaptcha = async () => {
+      try {
+        const firebaseAuth = auth;
+        if (!firebaseAuth) return;
+
+        // Use 'normal' size (checkbox) as it's often more reliable in iframes
+        // but we'll stick to invisible if you prefer. Let's try to ensure it's attached to window.
+        verifierInstance = new RecaptchaVerifier(firebaseAuth, recaptchaRef.current!, {
+          size: 'invisible',
+          callback: () => {
+            console.log('reCAPTCHA solved');
+          },
+          'expired-callback': () => {
+            console.log('reCAPTCHA expired');
+          }
+        });
+        
+        await verifierInstance.render();
+        
+        // Some internal Firebase logic relies on this
+        (window as any).recaptchaVerifier = verifierInstance;
+        
+        setRecaptchaVerifier(verifierInstance);
+        console.log('reCAPTCHA initialized');
+      } catch (err) {
+        console.error('reCAPTCHA init error:', err);
+        setError('Lỗi khởi tạo bảo mật. Hãy đảm bảo Domain này đã được thêm vào "Authorized Domains" trong Firebase Console.');
+      }
+    };
+
+    initRecaptcha();
 
     return () => {
-      if (verifier) {
+      if (verifierInstance) {
         try {
-          verifier.clear();
+          verifierInstance.clear();
+          delete (window as any).recaptchaVerifier;
         } catch (e) {
           // Ignore
         }
       }
     };
-  }, [recaptchaVerifier]);
+  }, [auth]); // Depend on auth being available
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,46 +82,57 @@ export default function Login() {
     // Clean phone number
     let cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^0-9]/g, '');
     
-    // Basic length validation to prevent TOO_LONG
-    if (cleanPhone.length < 9) {
-      setError('Số điện thoại quá ngắn (tối thiểu 9 số).');
-      return;
-    }
-    if (cleanPhone.length > 11) {
-      setError('Số điện thoại quá dài (tối đa 11 số).');
+    // Basic length validation
+    if (cleanPhone.length < 9 || cleanPhone.length > 11) {
+      setError('Số điện thoại không hợp lệ (9-11 số).');
       return;
     }
 
     if (cleanPhone.startsWith('0')) {
         cleanPhone = '+84' + cleanPhone.slice(1);
+    } else if (!cleanPhone.startsWith('84') && !cleanPhone.startsWith('+')) {
+        cleanPhone = '+84' + cleanPhone;
     } else if (cleanPhone.startsWith('84')) {
         cleanPhone = '+' + cleanPhone;
-    } else {
-        cleanPhone = '+84' + cleanPhone;
     }
 
     if (!recaptchaVerifier) {
-        setError('Lỗi khởi tạo bảo mật. Vui lòng làm mới trang.');
+        setError('Lỗi bảo mật: reCAPTCHA chưa sẵn sàng. Vui lòng tải lại trang.');
         return;
     }
 
     setLoading(true);
     try {
+        console.log("Attempting sign in with:", cleanPhone);
         const result = await signInWithPhoneNumber(auth, cleanPhone, recaptchaVerifier);
         setConfirmationResult(result);
         setStep('otp');
     } catch (err: any) {
-        console.error("SMS Auth Error:", err);
-        if (err.code === 'auth/invalid-phone-number' || err.code === 'auth/invalid-app-credential') {
-            setError('Số điện thoại không hợp lệ hoặc cấu hình xác thực chưa đúng.');
+        console.error("Firebase Auth Error Detail:", {
+          code: err.code,
+          message: err.message,
+          customData: err.customData,
+          full: err
+        });
+        
+        // Display more specific advice for internal-error
+        if (err.code === 'auth/internal-error') {
+            setError('Lỗi hệ thống Firebase. Hãy kiểm tra: 1. Đã thêm domain AI Studio (ais-dev-... & ais-pre-...) vào Authorized Domains chưa? 2. Đã bật Identity Toolkit API chưa? 3. Firebase Config có đúng projectId và authDomain không?');
+        } else if (err.code === 'auth/invalid-phone-number') {
+            setError('Số điện thoại không hợp lệ hoặc bị Firebase từ chối.');
         } else if (err.code === 'auth/too-many-requests') {
-            setError('Quá nhiều yêu cầu. Vui lòng thử lại sau.');
+            setError('Quá nhiều yêu cầu. Hãy thử lại bằng số điện thoại khác hoặc đợi vài phút.');
         } else if (err.code === 'auth/billing-not-enabled') {
-            setError('Dịch vụ gửi SMS tạm thời gián đoạn (Yêu cầu nâng cấp gói Firebase). Vui lòng liên hệ quản trị viên.');
-        } else if (err.message?.includes('TOO_LONG')) {
-            setError('Số điện thoại không hợp lệ (quá dài).');
+            setError('Cần nâng cấp gói Blaze để gửi SMS tới số điện thoại thật.');
         } else {
-            setError('Đã có lỗi xảy ra khi gửi mã. Vui lòng thử lại.');
+            setError(`Lỗi: ${err.message || 'Không thể gửi mã xác thực.'}`);
+        }
+        
+        // Help with re-init
+        try {
+          await recaptchaVerifier.render();
+        } catch (reErr) {
+          setRecaptchaVerifier(null);
         }
     } finally {
         setLoading(false);

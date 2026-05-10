@@ -34,10 +34,10 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
   useEffect(() => {
     // Sync with database for real-time updates (likesCount, commentsCount)
     const articleRef = doc(db, 'articles', initialArticle.id);
-    const unsubscribe = onSnapshot(articleRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data() as ArticleData;
-        setArticle({ id: doc.id, ...data });
+    const unsubscribe = onSnapshot(articleRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setArticle({ ...data, id: snapshot.id } as ArticleData);
       }
     });
     return () => unsubscribe();

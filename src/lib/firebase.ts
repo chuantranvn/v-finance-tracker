@@ -4,10 +4,10 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 
-// Safely handle the config
+// Safely handle the config import
 import configData from '../../firebase-applet-config.json';
 
-const config = (configData as any).default || configData;
+const config = configData;
 
 let appInstance: any = null;
 let authInstance: Auth | null = null;
@@ -53,18 +53,7 @@ export const auth = (typeof window !== 'undefined' ? getFirebaseAuth() : null) a
 export const db = (typeof window !== 'undefined' ? getFirebaseDB() : null) as unknown as Firestore;
 
 // Connectivity check - only on client
-if (typeof window !== 'undefined') {
-  const checkConnection = async () => {
-    const database = getFirebaseDB();
-    if (!database) return;
-    try {
-      await getDocFromServer(doc(database, 'test', 'connection'));
-    } catch (error) {
-      // Ignore common errors, just a silent check
-    }
-  };
-  checkConnection();
-}
+// Removed from top level to prevent build-time execution issues
 
 export enum OperationType {
   CREATE = 'create',
