@@ -19,16 +19,18 @@
       "description": "A saved stock symbol for a user.",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
         "userId": { "type": "string", "description": "The user who owns this bookmark." },
         "symbol": { "type": "string" },
         "companyName": { "type": "string" },
-        "quantity": { "type": "number" },
-        "avgPrice": { "type": "number" },
+        "shares": { "type": "number" },
+        "buyPrice": { "type": "number" },
+        "currentPrice": { "type": "number" },
         "autoUpdate": { "type": "boolean" },
-        "isVisible": { "type": "boolean" },
+        "isHidden": { "type": "boolean" },
         "timestamp": { "type": "number" }
       },
-      "required": ["userId", "symbol"]
+      "required": ["id", "userId", "symbol", "shares", "buyPrice", "currentPrice"]
     },
     "Article": {
       "title": "Article",

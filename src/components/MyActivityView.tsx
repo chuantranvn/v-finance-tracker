@@ -48,6 +48,7 @@ type Tab = 'profile' | 'posts' | 'bookmarks';
 
 interface MyActivityViewProps {
   onBack: () => void;
+  initialTab?: Tab;
   // Bookmarks props
   bookmarks: BookmarkData[];
   isSelectionMode: boolean;
@@ -67,6 +68,7 @@ interface MyActivityViewProps {
 
 export default function MyActivityView({ 
   onBack,
+  initialTab,
   bookmarks,
   isSelectionMode,
   selectedIds,
@@ -83,7 +85,13 @@ export default function MyActivityView({
   onShareArticle
 }: MyActivityViewProps) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('posts');
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab || 'posts');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   
   // Profile state
   const [profile, setProfile] = useState<UserProfile | null>(null);

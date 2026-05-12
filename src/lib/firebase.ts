@@ -5,9 +5,7 @@ import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 
 // Safely handle the config import
-import configData from '../../firebase-applet-config.json';
-
-const config = configData;
+import config from '../../firebase-applet-config.json';
 
 let appInstance: any = null;
 let authInstance: Auth | null = null;

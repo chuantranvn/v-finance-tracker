@@ -30,11 +30,16 @@ service cloud.firestore {
     }
 
     function isValidBookmark(data) {
-      return data.keys().hasAll(['userId', 'symbol']) &&
+      return data.keys().hasAll(['id', 'userId', 'symbol', 'shares', 'buyPrice', 'currentPrice']) &&
+             data.id is string &&
              data.userId is string && data.userId == request.auth.uid &&
              data.symbol is string && data.symbol.size() <= 10 &&
-             (data.get('quantity', 0) is number) &&
-             (data.get('avgPrice', 0) is number);
+             data.shares is number &&
+             data.buyPrice is number &&
+             data.currentPrice is number &&
+             (data.get('autoUpdate', true) is bool) &&
+             (data.get('isHidden', false) is bool) &&
+             (data.get('timestamp', 0) is number);
     }
 
     function isValidArticle(data) {
@@ -122,8 +127,8 @@ service cloud.firestore {
       
       allow create: if isOwner(userId) && isValidBookmark(incoming()) && isValidId(bookmarkId);
       allow update: if isOwner(userId) && isValidBookmark(incoming()) && (
-        // Action: Update quantity/price
-        incoming().diff(existing()).affectedKeys().hasOnly(['quantity', 'avgPrice', 'isVisible', 'autoUpdate', 'companyName'])
+        // Action: Update fields
+        incoming().diff(existing()).affectedKeys().hasOnly(['shares', 'buyPrice', 'currentPrice', 'symbol', 'companyName', 'autoUpdate', 'isHidden', 'timestamp'])
       );
       allow delete: if isOwner(userId) || isAdmin();
     }

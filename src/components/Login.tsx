@@ -23,13 +23,12 @@ export default function Login() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const recaptchaRef = useRef<HTMLDivElement>(null);
+  const verifierInstanceRef = useRef<RecaptchaVerifier | null>(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     // Avoid double initialization or running on server
     if (typeof window === 'undefined' || !recaptchaRef.current || recaptchaVerifier) return;
-
-    let verifierInstance: any = null;
 
     const initRecaptcha = async () => {
       try {
@@ -37,8 +36,7 @@ export default function Login() {
         if (!firebaseAuth) return;
 
         // Use 'normal' size (checkbox) as it's often more reliable in iframes
-        // but we'll stick to invisible if you prefer. Let's try to ensure it's attached to window.
-        verifierInstance = new RecaptchaVerifier(firebaseAuth, recaptchaRef.current!, {
+        const verifier = new RecaptchaVerifier(firebaseAuth, recaptchaRef.current!, {
           size: 'invisible',
           callback: () => {
             console.log('reCAPTCHA solved');
@@ -48,12 +46,13 @@ export default function Login() {
           }
         });
         
-        await verifierInstance.render();
+        await verifier.render();
         
         // Some internal Firebase logic relies on this
-        (window as any).recaptchaVerifier = verifierInstance;
+        (window as any).recaptchaVerifier = verifier;
         
-        setRecaptchaVerifier(verifierInstance);
+        verifierInstanceRef.current = verifier;
+        setRecaptchaVerifier(verifier);
         console.log('reCAPTCHA initialized');
       } catch (err) {
         console.error('reCAPTCHA init error:', err);
@@ -64,16 +63,16 @@ export default function Login() {
     initRecaptcha();
 
     return () => {
-      if (verifierInstance) {
+      if (verifierInstanceRef.current) {
         try {
-          verifierInstance.clear();
+          verifierInstanceRef.current.clear();
           delete (window as any).recaptchaVerifier;
         } catch (e) {
           // Ignore
         }
       }
     };
-  }, [auth]); // Depend on auth being available
+  }, [recaptchaVerifier]); // Only depend on recaptchaVerifier to avoid re-init
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();

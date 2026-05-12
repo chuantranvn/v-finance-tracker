@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { BookmarkData, ArticleData } from '@/types';
 import { fetchStockPrice } from '@/lib/stockService';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -12,7 +12,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useRef } from 'react';
 
 import UserMenu from '@/components/UserMenu';
 import NewsFeed from '@/components/NewsFeed';
@@ -24,10 +25,17 @@ import { Plus } from 'lucide-react';
 export default function Page() {
   const { user, loading: authLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
-  // Navigation state
+  const [view, setView] = useState<'home' | 'calc' | 'profile'>('home');
+  const [profileTab, setProfileTab] = useState<'profile' | 'posts' | 'bookmarks'>('posts');
   const [bookmarks, setBookmarks] = useState<BookmarkData[]>([]);
+  const firstUpdateRef = useRef<Record<string, boolean>>({});
 
-  const [view, setView] = useState<'home' | 'calc' | 'list' | 'profile'>('home');
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  };
 
   // Calc state
   const [sharesInput, setSharesInput] = useState<string>('');
@@ -51,6 +59,11 @@ export default function Page() {
   const [isAILoading, setIsAILoading] = useState(false);
   const [companyName, setCompanyName] = useState('');
 
+  // Initial load
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Profile sync with Firestore
   useEffect(() => {
     const syncProfile = async () => {
@@ -73,26 +86,42 @@ export default function Page() {
     syncProfile();
   }, [user, mounted]);
 
-  // Initial load
+  // Sync Bookmarks from Firestore
   useEffect(() => {
-    setMounted(true);
-    try {
-      const saved = localStorage.getItem('vfinance_calc_bookmarks');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setBookmarks(parsed);
-      }
-    } catch (e) {
-      console.error("Failed to load bookmarks", e);
-    }
-  }, []);
+    if (!user || !mounted) return;
 
-  // Persist bookmarks
+    const bookmarksRef = collection(db, 'users', user.uid, 'bookmarks');
+    const unsubscribe = onSnapshot(bookmarksRef, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ ...doc.data() } as BookmarkData));
+      const sorted = docs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      
+      // Load from localStorage as fallback for current prices if firestore is stale
+      const localSaved = localStorage.getItem(`vfinance_prices_${user.uid}`);
+      if (localSaved) {
+        try {
+          const prices = JSON.parse(localSaved);
+          setBookmarks(sorted.map(b => prices[b.id] !== undefined ? { ...b, currentPrice: prices[b.id] } : b));
+        } catch (e) {
+          setBookmarks(sorted);
+        }
+      } else {
+        setBookmarks(sorted);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, mounted]);
+
+  // Persistence of current prices to local storage for quick session Resume
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('vfinance_calc_bookmarks', JSON.stringify(bookmarks));
+    if (mounted && user) {
+      const prices: Record<string, number> = {};
+      bookmarks.forEach(b => {
+        prices[b.id] = b.currentPrice;
+      });
+      localStorage.setItem(`vfinance_prices_${user.uid}`, JSON.stringify(prices));
     }
-  }, [bookmarks, mounted]);
+  }, [bookmarks, mounted, user]);
 
   const {
     shares,
@@ -129,54 +158,104 @@ export default function Page() {
     };
   }, [sharesInput, buyPrice, currentPrice]);
 
-  const handleSaveBookmark = (e: React.FormEvent) => {
+  const handleSaveBookmark = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!symbolInput.trim()) return;
+    if (!symbolInput.trim() || !user) return;
 
+    const id = generateId();
+    const cPrice = (parseFloat(currentPrice.replace(/,/g, '')) || 0) * 1000;
     const newBookmark: BookmarkData = {
-      id: mounted ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+      id,
       symbol: symbolInput.trim().toUpperCase(),
       companyName: companyName || symbolInput.trim().toUpperCase(),
       autoUpdate: true,
       shares,
       buyPrice: (parseFloat(buyPrice.replace(/,/g, '')) || 0) * 1000,
-      currentPrice: (parseFloat(currentPrice.replace(/,/g, '')) || 0) * 1000,
+      currentPrice: cPrice,
       timestamp: Date.now()
     };
 
-    setBookmarks(prev => [newBookmark, ...prev]);
-    setIsSaveModalOpen(false);
-    setSymbolInput('');
-    setView('list');
+    try {
+      // 1. Save to Firestore
+      await setDoc(doc(db, 'users', user.uid, 'bookmarks', id), {
+        ...newBookmark,
+        userId: user.uid
+      });
+
+      // 2. Save to Local Storage price cache immediately
+      const localSaved = localStorage.getItem(`vfinance_prices_${user.uid}`);
+      let prices = localSaved ? JSON.parse(localSaved) : {};
+      prices[id] = cPrice;
+      localStorage.setItem(`vfinance_prices_${user.uid}`, JSON.stringify(prices));
+
+      setIsSaveModalOpen(false);
+      setSymbolInput('');
+      setProfileTab('bookmarks');
+      setView('profile');
+    } catch (err) {
+      console.error("Error saving bookmark", err);
+    }
   };
 
-  const handleUpdateBookmark = () => {
-    if (!editingBookmarkId) return;
-    setBookmarks(prev => prev.map(b => 
-      b.id === editingBookmarkId 
-        ? {
-            ...b,
-            symbol: editingSymbol.trim().toUpperCase() || b.symbol,
-            companyName: companyName || b.companyName,
-            shares,
-            buyPrice: (parseFloat(buyPrice.replace(/,/g, '')) || 0) * 1000,
-            currentPrice: (parseFloat(currentPrice.replace(/,/g, '')) || 0) * 1000,
-            timestamp: Date.now()
-          }
-        : b
-    ));
-    setView('list');
-  };
+  const handleUpdateBookmark = useCallback(async () => {
+    if (!editingBookmarkId || !user) return;
+    
+    try {
+      const bookmarkRef = doc(db, 'users', user.uid, 'bookmarks', editingBookmarkId);
+      const cPrice = (parseFloat(currentPrice.replace(/,/g, '')) || 0) * 1000;
+      
+      // 1. Update Firestore
+      await updateDoc(bookmarkRef, {
+        symbol: editingSymbol.trim().toUpperCase(),
+        companyName: companyName,
+        shares,
+        buyPrice: (parseFloat(buyPrice.replace(/,/g, '')) || 0) * 1000,
+        currentPrice: cPrice,
+        timestamp: Date.now()
+      });
 
-  const handleToggleAutoUpdate = (id: string, e?: React.MouseEvent) => {
+      // 2. Update Local Storage price cache immediately
+      const localSaved = localStorage.getItem(`vfinance_prices_${user.uid}`);
+      let prices = localSaved ? JSON.parse(localSaved) : {};
+      prices[editingBookmarkId] = cPrice;
+      localStorage.setItem(`vfinance_prices_${user.uid}`, JSON.stringify(prices));
+
+      setProfileTab('bookmarks');
+      setView('profile');
+    } catch (err) {
+      console.error("Error updating bookmark", err);
+    }
+  }, [editingBookmarkId, user, editingSymbol, companyName, shares, buyPrice, currentPrice]);
+
+  const handleToggleAutoUpdate = useCallback(async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setBookmarks(prev => prev.map(b => b.id === id ? { ...b, autoUpdate: !b.autoUpdate } : b));
-  };
+    if (!user) return;
+    try {
+      const b = bookmarks.find(x => x.id === id);
+      if (b) {
+        await updateDoc(doc(db, 'users', user.uid, 'bookmarks', id), {
+          autoUpdate: !b.autoUpdate
+        });
+      }
+    } catch (err) {
+      console.error("Error toggling auto update", err);
+    }
+  }, [user, bookmarks]);
 
-  const handleToggleHideBookmark = (id: string, e?: React.MouseEvent) => {
+  const handleToggleHideBookmark = useCallback(async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setBookmarks(prev => prev.map(b => b.id === id ? { ...b, isHidden: !b.isHidden } : b));
-  };
+    if (!user) return;
+    try {
+      const b = bookmarks.find(x => x.id === id);
+      if (b) {
+        await updateDoc(doc(db, 'users', user.uid, 'bookmarks', id), {
+          isHidden: !b.isHidden
+        });
+      }
+    } catch (err) {
+      console.error("Error toggling hide", err);
+    }
+  }, [user, bookmarks]);
 
   const formatNumber = (val: string) => {
     const num = val.replace(/,/g, '');
@@ -188,7 +267,7 @@ export default function Page() {
     return val;
   };
 
-  const handleLoadBookmark = (b: BookmarkData) => {
+  const handleLoadBookmark = useCallback((b: BookmarkData) => {
     setSharesInput(formatNumber(b.shares.toString()));
     setBuyPrice(formatNumber((b.buyPrice / 1000).toString()));
     setCurrentPrice(formatNumber((b.currentPrice / 1000).toString()));
@@ -196,45 +275,68 @@ export default function Page() {
     setEditingSymbol(b.symbol);
     setCompanyName(b.companyName || b.symbol);
     setStockSymbolAI(b.symbol);
+    setProfileTab('bookmarks');
     setView('calc');
-  };
+  }, []);
 
-  const handleDeleteBookmark = (id: string, e: React.MouseEvent) => {
+  const handleDeleteBookmark = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (!user) return;
     setConfirmDialog({
       message: 'Bạn có chắc chắn muốn xóa thẻ này?',
-      onConfirm: () => {
-        setBookmarks(prev => prev.filter(b => b.id !== id));
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', user.uid, 'bookmarks', id));
+        } catch (err) {
+          console.error("Error deleting bookmark", err);
+        }
         setConfirmDialog(null);
       }
     });
-  };
+  }, [user]);
 
-  const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedIds.size === 0 || !user) return;
     setConfirmDialog({
       message: `Bạn có chắc chắn muốn xóa ${selectedIds.size} danh mục đã chọn?`,
-      onConfirm: () => {
-        setBookmarks(prev => prev.filter(b => !selectedIds.has(b.id)));
-        setIsSelectionMode(false);
-        setSelectedIds(new Set());
+      onConfirm: async () => {
+        try {
+          const batch = writeBatch(db);
+          selectedIds.forEach(id => {
+            batch.delete(doc(db, 'users', user.uid, 'bookmarks', id));
+          });
+          await batch.commit();
+          setIsSelectionMode(false);
+          setSelectedIds(new Set());
+        } catch (err) {
+          console.error("Error deleting multiple bookmarks", err);
+        }
         setConfirmDialog(null);
       }
     });
-  };
+  }, [selectedIds, user]);
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = useCallback(() => {
+    if (!user) return;
     setConfirmDialog({
       message: 'Bạn có chắc chắn muốn xóa tất cả danh mục? Hành động này không thể hoàn tác.',
-      onConfirm: () => {
-        setBookmarks([]);
+      onConfirm: async () => {
+        try {
+          const batch = writeBatch(db);
+          bookmarks.forEach(b => {
+             batch.delete(doc(db, 'users', user.uid, 'bookmarks', b.id));
+          });
+          await batch.commit();
+        } catch (err) {
+          console.error("Error deleting all bookmarks", err);
+        }
         setConfirmDialog(null);
       }
     });
-  };
+  }, [user, bookmarks]);
 
-  const resetCalcAndGoToNew = () => {
+  const resetCalcAndGoToNew = useCallback(() => {
     setSharesInput(''); 
     setBuyPrice(''); 
     setCurrentPrice('');
@@ -244,7 +346,7 @@ export default function Page() {
     setCompanyName('');
     setSymbolInput('');
     setView('calc');
-  };
+  }, []);
 
   const handleAIGetPrice = async () => {
     if (!stockSymbolAI.trim()) return;
@@ -274,11 +376,35 @@ export default function Page() {
     }
   };
 
-  const handleUpdatePrice = (id: string, price: number, name: string) => {
+  const handleUpdatePrice = useCallback(async (id: string, price: number, name: string, forceSync: boolean = false) => {
+    // 1. Update state/local UI immediately
     setBookmarks(prev => prev.map(b => 
       b.id === id ? { ...b, currentPrice: price, companyName: name || b.companyName } : b
     ));
-  };
+
+    // 2. Sync to Local Storage immediately for quick resume
+    if (user) {
+      const localSaved = localStorage.getItem(`vfinance_prices_${user.uid}`);
+      let prices = localSaved ? JSON.parse(localSaved) : {};
+      prices[id] = price;
+      localStorage.setItem(`vfinance_prices_${user.uid}`, JSON.stringify(prices));
+    }
+
+    // 3. Cost optimization sync logic for Firestore
+    // Only update Firestore on the first fetch of the session for this bookmark, OR if it's a manual forceSync
+    if (user && (!firstUpdateRef.current[id] || forceSync)) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid, 'bookmarks', id), {
+          currentPrice: price,
+          companyName: name // Update name if found
+        });
+        // Mark as first fetch done in this session
+        firstUpdateRef.current[id] = true;
+      } catch (err) {
+        console.error("Error syncing price to Firestore", err);
+      }
+    }
+  }, [user]);
 
   const handleSignOut = async () => {
     setConfirmDialog({
@@ -349,6 +475,7 @@ export default function Page() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onShowInfo={() => {
+                setProfileTab('profile');
                 setView('profile');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
@@ -371,6 +498,7 @@ export default function Page() {
         {view === 'profile' && (
           <MyActivityView 
             onBack={() => setView('home')} 
+            initialTab={profileTab}
             bookmarks={bookmarks}
             isSelectionMode={isSelectionMode}
             selectedIds={selectedIds}
@@ -416,7 +544,7 @@ export default function Page() {
               editingBookmarkId={editingBookmarkId}
               editingSymbol={editingSymbol}
               setEditingSymbol={setEditingSymbol}
-              onBack={() => setView('list')}
+              onBack={() => setView('profile')}
               onUpdateBookmark={handleUpdateBookmark}
               onSaveBookmarkClick={() => setIsSaveModalOpen(true)}
             />
@@ -445,7 +573,7 @@ export default function Page() {
         onSuccess={() => {
           // Force refresh NewsFeed by toggling view briefly
           if (view === 'home') {
-            setView('list');
+            setView('profile');
             setTimeout(() => {
               setView('home');
               window.scrollTo({ top: 0, behavior: 'smooth' });
