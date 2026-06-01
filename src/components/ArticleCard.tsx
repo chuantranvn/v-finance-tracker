@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageCircle, Heart, Share2, MoreHorizontal, Loader2, Edit2, Trash2, EyeOff, Eye } from 'lucide-react';
+import { MessageCircle, Heart, Share2, MoreHorizontal, Loader2, Edit2, Trash2, EyeOff, Eye, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
 import CommentsModal from './CommentsModal';
@@ -27,7 +27,21 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
   const [isHiding, setIsHiding] = useState(false);
   const [sharedArticleContent, setSharedArticleContent] = useState<ArticleData | null>(null);
   const [isSharedArticleLoading, setIsSharedArticleLoading] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const imagesToView = useMemo(() => {
+    if (article.imageUrls && article.imageUrls.length > 0) return article.imageUrls;
+    if (article.imageUrl) return [article.imageUrl];
+    return [];
+  }, [article.imageUrls, article.imageUrl]);
+
+  const sharedImagesToView = useMemo(() => {
+    if (!sharedArticleContent) return [];
+    if (sharedArticleContent.imageUrls && sharedArticleContent.imageUrls.length > 0) return sharedArticleContent.imageUrls;
+    if (sharedArticleContent.imageUrl) return [sharedArticleContent.imageUrl];
+    return [];
+  }, [sharedArticleContent]);
 
   const isAuthor = user?.uid === article.authorId;
 
@@ -274,9 +288,41 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
           </div>
         </div>
 
-        <p className={cn("text-gray-700 whitespace-pre-wrap leading-relaxed", article.sharedArticleId ? "mb-4" : "mb-6")}>
+        <p className={cn("text-gray-700 whitespace-pre-wrap leading-relaxed", (article.sharedArticleId || article.imageUrl || (article.imageUrls && article.imageUrls.length > 0)) ? "mb-4" : "mb-6")}>
           {article.content}
         </p>
+
+        {article.imageUrls && article.imageUrls.length > 1 ? (
+          <div className={`mb-6 grid gap-2 ${
+            article.imageUrls.length === 2 ? 'grid-cols-2' :
+            article.imageUrls.length === 3 ? 'grid-cols-2' :
+            'grid-cols-2'
+          }`}>
+            {article.imageUrls.map((url, index) => (
+              <div 
+                key={index} 
+                onClick={() => setSelectedImageIndex(index)}
+                className={`rounded-xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity ${
+                  article.imageUrls!.length === 3 && index === 0 ? 'col-span-2 aspect-video' : 'aspect-square'
+                }`}
+              >
+                <img src={url} alt={`Attachment ${index + 1}`} className="w-full h-full object-cover" loading="lazy" />
+              </div>
+            ))}
+          </div>
+        ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
+          <div 
+            onClick={() => setSelectedImageIndex(0)}
+            className="mb-6 rounded-2xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center max-h-[500px] cursor-pointer hover:opacity-90 transition-opacity"
+          >
+            <img 
+              src={article.imageUrls?.[0] || article.imageUrl} 
+              alt="Article attachment" 
+              className="w-full h-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        ) : null}
 
         {article.sharedArticleId && (
           <div className="mb-6 p-4 bg-[#f8f9fa] rounded-2xl border border-gray-100 group/shared">
@@ -297,6 +343,31 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
                 <p className="text-sm text-gray-600 line-clamp-3">
                   {sharedArticleContent.content}
                 </p>
+                {sharedArticleContent.imageUrls && sharedArticleContent.imageUrls.length > 1 ? (
+                  <div className="mt-2 grid grid-cols-2 gap-1">
+                    {sharedArticleContent.imageUrls.slice(0, 2).map((url, i) => (
+                      <div 
+                        key={i} 
+                        onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(i); }}
+                        className="rounded-lg overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center aspect-video cursor-pointer hover:opacity-90 transition-opacity"
+                      >
+                        <img src={url} alt={`Shared attachment ${i}`} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (sharedArticleContent.imageUrl || (sharedArticleContent.imageUrls && sharedArticleContent.imageUrls.length === 1)) ? (
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(0); }}
+                    className="mt-2 rounded-xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center max-h-32 cursor-pointer hover:opacity-90 transition-opacity"
+                  >
+                     <img 
+                       src={sharedArticleContent.imageUrls?.[0] || sharedArticleContent.imageUrl} 
+                       alt="Shared attachment" 
+                       className="max-w-full max-h-32 object-contain" 
+                       loading="lazy"
+                     />
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="py-2 text-sm text-gray-400 flex items-center gap-2 italic">
@@ -360,6 +431,76 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
           article={article}
         />
       )}
+
+      {/* Image Viewer Lightbox */}
+      <AnimatePresence>
+        {selectedImageIndex !== null && imagesToView.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center backdrop-blur-sm"
+          >
+            <button
+              onClick={() => setSelectedImageIndex(null)}
+              className="absolute top-4 right-4 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all z-50"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {imagesToView.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex((prev) => (prev! === 0 ? imagesToView.length - 1 : prev! - 1));
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all z-50"
+                >
+                  <ChevronLeft className="w-8 h-8" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex((prev) => (prev! === imagesToView.length - 1 ? 0 : prev! + 1));
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all z-50"
+                >
+                  <ChevronRight className="w-8 h-8" />
+                </button>
+              </>
+            )}
+
+            <motion.div 
+              key={selectedImageIndex}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center p-4 md:p-12"
+              onClick={() => setSelectedImageIndex(null)}
+            >
+              <img
+                src={imagesToView[selectedImageIndex]}
+                alt={`Full preview ${selectedImageIndex + 1}`}
+                className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-sm select-none"
+                onClick={(e) => e.stopPropagation()}
+              />
+              
+              {imagesToView.length > 1 && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-50 bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
+                  {imagesToView.map((_, idx) => (
+                    <div 
+                      key={idx}
+                      className={`w-2 h-2 rounded-full transition-all ${idx === selectedImageIndex ? 'bg-white scale-125' : 'bg-white/40'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

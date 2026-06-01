@@ -21,4 +21,6 @@ export interface ArticleData {
   isDeleted?: boolean;
   isHidden?: boolean;
   sharedArticleId?: string | null;
+  imageUrl?: string;
+  imageUrls?: string[];
 }

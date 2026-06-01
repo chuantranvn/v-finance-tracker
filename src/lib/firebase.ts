@@ -3,6 +3,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Safely handle the config import
 import config from '../../firebase-applet-config.json';
@@ -10,6 +11,7 @@ import config from '../../firebase-applet-config.json';
 let appInstance: any = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
+let storageInstance: FirebaseStorage | null = null;
 
 const getAppInstance = () => {
   if (typeof window === 'undefined') return null;
@@ -29,6 +31,9 @@ export const getFirebaseAuth = () => {
     const app = getAppInstance();
     if (app) {
       authInstance = getAuth(app);
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        authInstance.settings.appVerificationDisabledForTesting = true;
+      }
     }
   }
   return authInstance;
@@ -45,10 +50,22 @@ export const getFirebaseDB = () => {
   return dbInstance;
 };
 
+export const getFirebaseStorage = () => {
+  if (typeof window === 'undefined') return null;
+  if (!storageInstance) {
+    const app = getAppInstance();
+    if (app) {
+      storageInstance = getStorage(app, config.storageBucket);
+    }
+  }
+  return storageInstance;
+};
+
 // Aliases for legacy code - safely handles server-side execution
 // We cast these to satisfy TypeScript, but they will be null on server
 export const auth = (typeof window !== 'undefined' ? getFirebaseAuth() : null) as unknown as Auth;
 export const db = (typeof window !== 'undefined' ? getFirebaseDB() : null) as unknown as Firestore;
+export const storage = (typeof window !== 'undefined' ? getFirebaseStorage() : null) as unknown as FirebaseStorage;
 
 // Connectivity check - only on client
 // Removed from top level to prevent build-time execution issues
