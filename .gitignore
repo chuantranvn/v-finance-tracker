@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+out/
+.idea/
+.vscode/
+.firebase
+.firebaserc
+.next
+node_modules
