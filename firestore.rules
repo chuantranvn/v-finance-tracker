@@ -43,26 +43,31 @@ service cloud.firestore {
     }
 
     function isValidArticle(data) {
-      return data.keys().hasAll(['authorId', 'content', 'createdAt']) &&
-             data.authorId is string && data.authorId.size() <= 128 &&
-             data.content is string && data.content.size() <= 5000 &&
-             (data.get('likesCount', 0) is number) &&
-             (data.get('commentsCount', 0) is number) &&
-             (data.get('isHidden', false) is bool) &&
-             (data.createdAt == request.time || (hasExisting() && data.createdAt == existing().createdAt));
+      // Use existing() for default values if the field is not in the update data.
+      // This is necessary because `incoming()` only contains updated fields.
+      let authorId = data.get('authorId', existing().authorId);
+      let content = data.get('content', existing().content);
+      
+      return authorId is string && authorId.size() <= 128 &&
+             content is string && content.size() <= 5000 &&
+             (data.get('likesCount', existing().get('likesCount', 0)) is number) &&
+             (data.get('commentsCount', existing().get('commentsCount', 0)) is number) &&
+             (data.get('isHidden', existing().get('isHidden', false)) is bool);
     }
 
     function isValidComment(data) {
-      return data.keys().hasAll(['authorId', 'content', 'createdAt']) &&
-             data.authorId is string && data.authorId.size() <= 128 &&
-             data.content is string && data.content.size() <= 1000 &&
-             (data.get('parentId', '') is string) &&
-             (data.get('authorName', '') is string) &&
-             (data.get('replyToId', '') is string) &&
-             (data.get('replyToPhone', '') is string) &&
-             (data.get('replyToName', '') is string) &&
-             (data.get('likesCount', 0) is number) &&
-             (data.createdAt == request.time || (hasExisting() && data.createdAt == existing().createdAt));
+      // Use existing() for default values for updates.
+      let authorId = data.get('authorId', existing().authorId);
+      let content = data.get('content', existing().content);
+      
+      return authorId is string && authorId.size() <= 128 &&
+             content is string && content.size() <= 1000 &&
+             (data.get('parentId', existing().get('parentId', '')) is string) &&
+             (data.get('authorName', existing().get('authorName', '')) is string) &&
+             (data.get('replyToId', existing().get('replyToId', '')) is string) &&
+             (data.get('replyToPhone', existing().get('replyToPhone', '')) is string) &&
+             (data.get('replyToName', existing().get('replyToName', '')) is string) &&
+             (data.get('likesCount', existing().get('likesCount', 0)) is number);
     }
 
     function hasExisting() { return resource != null; }
@@ -138,7 +143,6 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && 
         request.resource.data.actorId == request.auth.uid &&
-        request.resource.data.targetId is string &&
         request.resource.data.type in ['like', 'comment', 'share'];
       
       allow update: if isSignedIn() && resource.data.targetId == request.auth.uid && 

@@ -117,7 +117,12 @@ export async function addNotification(
   targetId: string,
   commentId?: string 
 ) {
+  console.log("addNotification called:", { type, articleId, actorId, targetId, commentId });
   if (actorId === targetId) return; // Don't notify self
+  if (!targetId) {
+    console.warn("Notification not created: targetId is missing", { type, articleId, actorId, targetId, commentId });
+    return;
+  }
 
   try {
     const notificationsRef = collection(db, 'notifications');
