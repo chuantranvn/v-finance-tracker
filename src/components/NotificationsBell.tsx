@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from './AuthProvider';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
@@ -72,8 +72,13 @@ export default function NotificationsBell() {
 
   const router = useRouter();
 
-  const handleNotificationClick = (articleId: string) => {
+  const handleNotificationClick = async (notifId: string, articleId: string) => {
     setIsOpen(false);
+    try {
+      await updateDoc(doc(db, 'notifications', notifId), { read: true });
+    } catch (e) {
+      console.error("Error marking notification as read:", e);
+    }
     router.push(`/article/${articleId}`);
   };
 
@@ -103,7 +108,7 @@ export default function NotificationsBell() {
                 <NotificationItem 
                   key={n.id} 
                   notification={n} 
-                  onClick={() => handleNotificationClick(n.articleId)}
+                  onClick={() => handleNotificationClick(n.id, n.articleId)}
                 />
               ))
             )}
