@@ -56,11 +56,12 @@ service cloud.firestore {
     }
 
     function isValidComment(data) {
-      let authorId = hasExisting() ? data.get('authorId', existing().authorId) : data.authorId;
-      let content = hasExisting() ? data.get('content', existing().content) : data.content;
+      // Use existing() for default values for updates.
+      let authorId = hasExisting() ? data.get('authorId', existing().authorId) : data.get('authorId', '');
+      let content = hasExisting() ? data.get('content', existing().content) : data.get('content', '');
       
-      return authorId is string && authorId.size() <= 128 &&
-             content is string && content.size() <= 1000 &&
+      return authorId is string && authorId.size() > 0 && authorId.size() <= 128 &&
+             content is string && content.size() > 0 && content.size() <= 1000 &&
              (hasExisting() ? data.get('parentId', existing().get('parentId', '')) : data.get('parentId', '')) is string &&
              (hasExisting() ? data.get('authorName', existing().get('authorName', '')) : data.get('authorName', '')) is string &&
              (hasExisting() ? data.get('replyToId', existing().get('replyToId', '')) : data.get('replyToId', '')) is string &&
@@ -96,7 +97,7 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && isValidComment(incoming()) && incoming().authorId == request.auth.uid && isValidId(commentId);
+        allow create: if isSignedIn() && isValidComment(incoming());
         allow update: if isSignedIn() && isValidComment(incoming()) && incoming().authorId == existing().authorId && (
           (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt']) && incoming().updatedAt == request.time) ||
           // Action: Like/Unlike Comment (Anyone)
