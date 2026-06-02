@@ -17,6 +17,7 @@ import { useRef } from 'react';
 
 import UserMenu from '@/components/UserMenu';
 import NewsFeed from '@/components/NewsFeed';
+import NotificationsBell from '@/components/NotificationsBell';
 import CreateArticleModal from '@/components/CreateArticleModal';
 import MyActivityView from '@/components/MyActivityView';
 import Logo from '@/components/Logo';
@@ -458,6 +459,7 @@ export default function Page() {
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
+            <NotificationsBell />
             <button
               onClick={() => setIsCreateArticleOpen(true)}
               className="p-3 md:p-3.5 bg-white text-blue-600 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex items-center justify-center active:scale-95"

@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Send, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, addNotification } from '@/lib/firebase';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/components/AuthProvider';
 import { ArticleData } from '@/types';
@@ -115,6 +115,10 @@ export default function CreateArticleModal({ isOpen, onClose, onSuccess, sharedA
       }
 
       await setDoc(articleRef, articleData);
+
+      if (sharedArticle) {
+        await addNotification(db, 'share', articleId, user.uid, sharedArticle.authorId);
+      }
 
       setContent('');
       removeAllImages();

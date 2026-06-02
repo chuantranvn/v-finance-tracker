@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Send, User, CornerDownRight, Loader2 } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, addNotification } from '@/lib/firebase';
 import { 
   collection, 
   query, 
@@ -173,9 +173,10 @@ interface CommentsModalProps {
   isOpen: boolean;
   onClose: () => void;
   articleId: string;
+  articleAuthorId: string;
 }
 
-export default function CommentsModal({ isOpen, onClose, articleId }: CommentsModalProps) {
+export default function CommentsModal({ isOpen, onClose, articleId, articleAuthorId }: CommentsModalProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,18 +230,18 @@ export default function CommentsModal({ isOpen, onClose, articleId }: CommentsMo
         commentPayload.replyToId = replyingTo.authorId;
         commentPayload.replyToPhone = replyingTo.authorPhone;
         
-        // We need to fetch the display name of the person we're replying to if it's not and @ mention in the string
-        // Actually, let's just store what was used in the mention
         const mentionMatch = newComment.match(/^@([^ ]+) /);
         if (mentionMatch) {
           commentPayload.replyToName = mentionMatch[1];
         }
       }
 
-      await addDoc(commentsRef, commentPayload);
+      const commentDocRef = await addDoc(commentsRef, commentPayload);
       await updateDoc(articleRef, {
         commentsCount: increment(1)
       });
+      
+      await addNotification(db, 'comment', articleId, user.uid, replyingTo ? replyingTo.authorId : articleAuthorId, commentDocRef.id);
 
       setNewComment('');
       setReplyingTo(null);

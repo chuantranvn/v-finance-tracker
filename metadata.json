@@ -2,5 +2,7 @@
   "name": "V-Stock Social",
   "description": "Stock tracking and social networking for Vietnamese investors. Track portfolios, connect with others, and stay updated with real-time market data.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

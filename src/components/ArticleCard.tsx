@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
 import CommentsModal from './CommentsModal';
 import { useAuth } from './AuthProvider';
-import { db } from '@/lib/firebase';
+import { db, addNotification } from '@/lib/firebase';
 import { doc, writeBatch, onSnapshot, increment, updateDoc, getDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import AuthorInfo from './AuthorInfo';
@@ -110,6 +110,7 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
       } else {
         batch.set(likeRef, { createdAt: new Date() });
         batch.update(articleRef, { likesCount: increment(1) });
+        await addNotification(db, 'like', article.id, user.uid, article.authorId);
       }
 
       await batch.commit();
@@ -422,6 +423,7 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
         isOpen={isCommentsOpen}
         onClose={() => setIsCommentsOpen(false)}
         articleId={article.id}
+        articleAuthorId={article.authorId}
       />
 
       {isAuthor && (

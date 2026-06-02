@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, Firestore, doc, getDocFromServer, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Safely handle the config import
@@ -93,6 +93,45 @@ export interface FirestoreErrorInfo {
       providerId?: string | null;
       email?: string | null;
     }[];
+  }
+}
+
+export type NotificationType = 'like' | 'comment' | 'share';
+
+export interface NotificationData {
+  id?: string;
+  type: NotificationType;
+  articleId: string;
+  actorId: string;
+  targetId: string;
+  createdAt: any;
+  read: boolean;
+  commentId?: string;
+}
+
+export async function addNotification(
+  db: Firestore,
+  type: NotificationType,
+  articleId: string,
+  actorId: string,
+  targetId: string,
+  commentId?: string 
+) {
+  if (actorId === targetId) return; // Don't notify self
+
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    await addDoc(notificationsRef, {
+      type,
+      articleId,
+      actorId,
+      targetId,
+      createdAt: serverTimestamp(),
+      read: false,
+      ...(commentId && { commentId })
+    });
+  } catch (error) {
+    console.error("Error creating notification:", error);
   }
 }
 
