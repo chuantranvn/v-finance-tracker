@@ -27,10 +27,20 @@ import { Plus } from 'lucide-react';
 export default function Page() {
   const { user, loading: authLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [view, setView] = useState<'home' | 'calc' | 'profile' | 'admin'>('home');
   const [profileTab, setProfileTab] = useState<'profile' | 'posts' | 'bookmarks'>('posts');
   const [bookmarks, setBookmarks] = useState<BookmarkData[]>([]);
   const firstUpdateRef = useRef<Record<string, boolean>>({});
+
+  // Admin check
+  useEffect(() => {
+    if (user) {
+      getDoc(doc(db, 'admins', user.uid)).then(docSnap => {
+        setIsAdmin(docSnap.exists());
+      });
+    }
+  }, [user]);
 
   const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -460,7 +470,7 @@ export default function Page() {
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
-            <button onClick={() => setView('admin')} className="text-xs text-gray-500">Admin</button>
+            {isAdmin && <button onClick={() => setView('admin')} className="text-xs text-gray-500">Admin</button>}
             <NotificationsBell />
             <button
               onClick={() => setIsCreateArticleOpen(true)}

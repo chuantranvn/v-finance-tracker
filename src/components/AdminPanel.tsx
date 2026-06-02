@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from './AuthProvider';
 
 export default function AdminPanel() {
+  const { user } = useAuth();
   const [reports, setReports] = useState<any[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'reports'), where('status', '==', 'pending'));
+    const q = query(collection(db, 'reports'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setReports(reportsData);
@@ -16,43 +18,60 @@ export default function AdminPanel() {
     return () => unsubscribe();
   }, []);
 
-  const resolveReport = async (report: any) => {
+  const updateReportStatus = async (reportId: string, status: 'resolved' | 'dismissed', reporterId: string, postId: string) => {
+    if (!user) return;
     try {
-      // 1. Update report status
-      await updateDoc(doc(db, 'reports', report.id), { status: 'resolved' });
+      await updateDoc(doc(db, 'reports', reportId), { status });
       
-      // 2. Create notification
-      await addDoc(collection(db, 'notifications'), {
-        type: 'report_resolved',
-        actorId: 'admin_uid', // Should be auth.uid, but need admin check
-        targetId: report.reporterId,
-        articleId: report.postId,
-        read: false,
-        createdAt: serverTimestamp()
-      });
-      alert('Đã giải quyết báo cáo.');
+      if (status === 'resolved') {
+        await addDoc(collection(db, 'notifications'), {
+          type: 'report_resolved',
+          actorId: user.uid,
+          targetId: reporterId,
+          articleId: postId,
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      }
+      alert(`Đã ${status === 'resolved' ? 'giải quyết' : 'từ chối'} báo cáo.`);
     } catch (e) {
       console.error(e);
-      alert('Lỗi giải quyết báo cáo.');
+      alert('Lỗi cập nhật báo cáo.');
     }
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Admin Panel - Reports</h2>
-      {reports.map(report => (
-        <div key={report.id} className="border p-4 mb-2 rounded shadow">
-          <p>Post ID: {report.postId}</p>
-          <p>Reporter: {report.reporterId}</p>
-          <p>Reason: {report.reason}</p>
-          <button 
-            onClick={() => resolveReport(report)}
-            className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
-          >
-            Resolve
-          </button>
-        </div>
-      ))}
+    <div className="p-6 bg-white rounded-2xl shadow-sm">
+      <h2 className="text-2xl font-bold mb-6">Admin Panel - Báo cáo</h2>
+      <div className="space-y-4">
+        {reports.map(report => (
+          <div key={report.id} className="border border-gray-100 p-4 rounded-xl flex justify-between items-center">
+            <div>
+              <p className="font-bold">Post ID: {report.postId}</p>
+              <p className="text-sm text-gray-600">Lý do: {report.reason}</p>
+              <p className={`text-xs mt-1 ${report.status === 'pending' ? 'text-yellow-600' : report.status === 'resolved' ? 'text-green-600' : 'text-red-500'}`}>
+                Trạng thái: {report.status}
+              </p>
+            </div>
+            {report.status === 'pending' && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => updateReportStatus(report.id, 'dismissed', report.reporterId, report.postId)}
+                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+                >
+                  Từ chối
+                </button>
+                <button 
+                  onClick={() => updateReportStatus(report.id, 'resolved', report.reporterId, report.postId)}
+                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+                >
+                  Giải quyết
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
