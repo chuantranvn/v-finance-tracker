@@ -138,7 +138,7 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && 
         request.resource.data.actorId == request.auth.uid &&
-        request.resource.data.createdAt == request.time &&
+        request.resource.data.targetId is string &&
         request.resource.data.type in ['like', 'comment', 'share'];
       
       allow update: if isSignedIn() && resource.data.targetId == request.auth.uid && 
