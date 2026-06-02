@@ -11,16 +11,20 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!user) return;
-
     const checkAdmin = async () => {
-      const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-      if (!adminDoc.exists()) return;
+      try {
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        console.log("Admin doc found:", adminDoc.exists(), adminDoc.data());
+        if (!adminDoc.exists() || adminDoc.data().role !== 'superadmin') return;
 
-      const q = query(collection(db, 'reports'));
-      return onSnapshot(q, (snapshot) => {
-        const reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setReports(reportsData);
-      });
+        const q = query(collection(db, 'reports'));
+        return onSnapshot(q, (snapshot) => {
+          const reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setReports(reportsData);
+        });
+      } catch (e) {
+        console.error("Error checking admin:", e);
+      }
     };
 
     let unsubscribe: any;

@@ -10,7 +10,10 @@ service cloud.firestore {
     // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isAdmin() { 
+      let adminDoc = get(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && adminDoc.data != null && adminDoc.data.role == "superadmin";
+    }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
@@ -83,6 +86,10 @@ service cloud.firestore {
     function hasExisting() { return resource != null; }
 
     // --- Collection Matches ---
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+    }
 
     match /articles/{articleId} {
       allow read: if isSignedIn();
