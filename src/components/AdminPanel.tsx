@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useAuth } from './AuthProvider';
 
 export default function AdminPanel() {
@@ -10,13 +10,23 @@ export default function AdminPanel() {
   const [reports, setReports] = useState<any[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'reports'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setReports(reportsData);
-    });
-    return () => unsubscribe();
-  }, []);
+    if (!user) return;
+
+    const checkAdmin = async () => {
+      const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+      if (!adminDoc.exists()) return;
+
+      const q = query(collection(db, 'reports'));
+      return onSnapshot(q, (snapshot) => {
+        const reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setReports(reportsData);
+      });
+    };
+
+    let unsubscribe: any;
+    checkAdmin().then(unsub => unsubscribe = unsub);
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, [user]);
 
   const updateReportStatus = async (reportId: string, status: 'resolved' | 'dismissed', reporterId: string, postId: string) => {
     if (!user) return;
