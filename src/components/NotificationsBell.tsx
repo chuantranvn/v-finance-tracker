@@ -3,15 +3,52 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from './AuthProvider';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
+import { getDisplayName } from '@/lib/userUtils';
+import { cn } from '@/lib/utils';
+
+const NotificationItem = ({ notification, onClick }: { notification: any, onClick: () => void }) => {
+  const [senderName, setSenderName] = useState('Ai đó');
+
+  useEffect(() => {
+    const userRef = doc(db, 'users', notification.actorId);
+    getDoc(userRef).then(docSnap => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setSenderName(getDisplayName({ displayName: userData.displayName, phoneNumber: userData.phoneNumber }));
+      }
+    });
+  }, [notification.actorId]);
+
+  return (
+    <div onClick={onClick} className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer text-sm flex items-center gap-3">
+      {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />}
+      <div className={cn(!notification.read && "font-medium")}>
+        <p>
+          <span className="font-bold">{senderName}</span>
+          {' '}
+          <span className="text-gray-700">
+            {notification.type === 'like' ? 'đã thích' : notification.type === 'comment' ? 'đã bình luận' : 'đã chia sẻ'}
+          </span>
+          {' '}
+          <span className="text-gray-500">bài viết của bạn</span>
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          {notification.createdAt?.toDate ? formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true, locale: vi }) : ''}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 export default function NotificationsBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [hasOpenedBell, setHasOpenedBell] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -32,14 +69,23 @@ export default function NotificationsBell() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const handleNotificationClick = (articleId: string) => {
+    setIsOpen(false);
+    // Assuming articleId links to a route, e.g. /article/articleId
+    window.location.href = `/article/${articleId}`;
+  };
+
   return (
     <div className="relative">
       <button 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) setHasOpenedBell(true);
+        }}
         className="p-3 bg-white text-gray-700 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all active:scale-95 relative"
       >
         <Bell className="w-5 h-5" />
-        {unreadCount > 0 && (
+        {unreadCount > 0 && !hasOpenedBell && (
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
         )}
       </button>
@@ -52,15 +98,11 @@ export default function NotificationsBell() {
               <div className="px-4 py-4 text-sm text-gray-500">Chưa có thông báo.</div>
             ) : (
               notifications.map(n => (
-                <div key={n.id} className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer text-sm">
-                  <p>
-                    <span className="font-bold">{n.type === 'like' ? 'Ai đó đã thích' : n.type === 'comment' ? 'Ai đó đã bình luận' : 'Ai đó đã chia sẻ'}</span>
-                    {' bài viết của bạn'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {n.createdAt?.toDate ? formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true, locale: vi }) : ''}
-                  </p>
-                </div>
+                <NotificationItem 
+                  key={n.id} 
+                  notification={n} 
+                  onClick={() => handleNotificationClick(n.articleId)}
+                />
               ))
             )}
           </div>
