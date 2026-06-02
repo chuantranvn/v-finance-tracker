@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
 import { getDisplayName } from '@/lib/userUtils';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 const NotificationItem = ({ notification, onClick }: { notification: any, onClick: () => void }) => {
   const [senderName, setSenderName] = useState('Ai đó');
@@ -69,10 +70,11 @@ export default function NotificationsBell() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const router = useRouter();
+
   const handleNotificationClick = (articleId: string) => {
     setIsOpen(false);
-    // Assuming articleId links to a route, e.g. /article/articleId
-    window.location.href = `/article/${articleId}`;
+    router.push(`/article/${articleId}`);
   };
 
   return (
