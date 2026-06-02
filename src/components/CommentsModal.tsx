@@ -9,6 +9,7 @@ import {
   query, 
   orderBy, 
   getDocs, 
+  getDoc,
   addDoc, 
   serverTimestamp, 
   increment, 
@@ -223,6 +224,10 @@ export default function CommentsModal({ isOpen, onClose, articleId, articleAutho
         content: newComment.trim(),
         createdAt: serverTimestamp(),
         likesCount: 0,
+        parentId: '',
+        replyToId: '',
+        replyToPhone: '',
+        replyToName: '',
       };
 
       if (replyingTo) {
@@ -233,13 +238,20 @@ export default function CommentsModal({ isOpen, onClose, articleId, articleAutho
         const mentionMatch = newComment.match(/^@([^ ]+) /);
         if (mentionMatch) {
           commentPayload.replyToName = mentionMatch[1];
+        } else {
+          // If no @name match, still need a replyToName if replying? 
+          // Actually, let's keep it as an empty string.
         }
       }
 
       const commentDocRef = await addDoc(commentsRef, commentPayload);
-      await updateDoc(articleRef, {
-        commentsCount: increment(1)
-      });
+      const articleSnap = await getDoc(articleRef);
+      if (articleSnap.exists()) {
+        const currentCount = articleSnap.data().commentsCount || 0;
+        await updateDoc(articleRef, {
+          commentsCount: currentCount + 1
+        });
+      }
       
       await addNotification(db, 'comment', articleId, user.uid, replyingTo ? replyingTo.authorId : articleAuthorId, commentDocRef.id);
 
