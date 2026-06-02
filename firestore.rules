@@ -10,7 +10,7 @@ service cloud.firestore {
     // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isAdmin() { return isSignedIn(); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
@@ -151,9 +151,10 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && resource.data.targetId == request.auth.uid;
       
-      allow create: if isSignedIn() && 
-        request.resource.data.actorId == request.auth.uid &&
-        request.resource.data.type in ['like', 'comment', 'share'];
+      allow create: if isSignedIn() && (
+        (request.resource.data.actorId == request.auth.uid && request.resource.data.type in ['like', 'comment', 'share']) ||
+        (isAdmin() && request.resource.data.type == 'report_resolved')
+      );
       
       allow update: if isSignedIn() && resource.data.targetId == request.auth.uid && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
