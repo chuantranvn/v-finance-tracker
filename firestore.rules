@@ -45,14 +45,14 @@ service cloud.firestore {
     function isValidArticle(data) {
       // Use existing() for default values if the field is not in the update data.
       // This is necessary because `incoming()` only contains updated fields.
-      let authorId = data.get('authorId', existing().authorId);
-      let content = data.get('content', existing().content);
+      let authorId = hasExisting() ? data.get('authorId', existing().authorId) : data.get('authorId', null);
+      let content = hasExisting() ? data.get('content', existing().content) : data.get('content', null);
       
       return authorId is string && authorId.size() <= 128 &&
              content is string && content.size() <= 5000 &&
-             (data.get('likesCount', existing().get('likesCount', 0)) is number) &&
-             (data.get('commentsCount', existing().get('commentsCount', 0)) is number) &&
-             (data.get('isHidden', existing().get('isHidden', false)) is bool);
+             (hasExisting() ? data.get('likesCount', existing().get('likesCount', 0)) : data.get('likesCount', 0)) is number &&
+             (hasExisting() ? data.get('commentsCount', existing().get('commentsCount', 0)) : data.get('commentsCount', 0)) is number &&
+             (hasExisting() ? data.get('isHidden', existing().get('isHidden', false)) : data.get('isHidden', false)) is bool;
     }
 
     function isValidComment(data) {
