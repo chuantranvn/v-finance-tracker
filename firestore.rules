@@ -70,6 +70,16 @@ service cloud.firestore {
              (hasExisting() ? data.get('likesCount', existing().get('likesCount', 0)) : data.get('likesCount', 0)) is number;
     }
 
+    function isValidReport(data) {
+      return data.keys().hasAll(['postId', 'reporterId', 'reason', 'timestamp', 'status']) &&
+             data.postId is string && data.postId.size() > 0 &&
+             data.reporterId is string && data.reporterId.size() > 0 &&
+             data.reporterId == request.auth.uid &&
+             data.reason is string && data.reason.size() > 0 &&
+             data.timestamp is timestamp &&
+             data.status in ['pending', 'resolved', 'dismissed'];
+    }
+
     function hasExisting() { return resource != null; }
 
     // --- Collection Matches ---
@@ -147,6 +157,11 @@ service cloud.firestore {
       
       allow update: if isSignedIn() && resource.data.targetId == request.auth.uid && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
+    match /reports/{reportId} {
+      allow create: if isSignedIn() && isValidReport(incoming()) && isValidId(reportId);
+      allow read, update, delete: if isAdmin();
     }
   }
 }

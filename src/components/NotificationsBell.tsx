@@ -10,10 +10,11 @@ import { vi } from 'date-fns/locale/vi';
 import { getDisplayName } from '@/lib/userUtils';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import ReportResolvedModal from './ReportResolvedModal';
 
 const NotificationItem = ({ notification, onClick }: { notification: any, onClick: () => void }) => {
   const [senderName, setSenderName] = useState('Ai đó');
-
+  
   useEffect(() => {
     const userRef = doc(db, 'users', notification.actorId);
     getDoc(userRef).then(docSnap => {
@@ -29,13 +30,13 @@ const NotificationItem = ({ notification, onClick }: { notification: any, onClic
       {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />}
       <div className={cn(!notification.read && "font-medium")}>
         <p>
-          <span className="font-bold">{senderName}</span>
+          <span className="font-bold">{notification.type === 'report_resolved' ? 'Quản trị viên' : senderName}</span>
           {' '}
           <span className="text-gray-700">
-            {notification.type === 'like' ? 'đã thích' : notification.type === 'comment' ? 'đã bình luận' : 'đã chia sẻ'}
+            {notification.type === 'like' ? 'đã thích' : notification.type === 'comment' ? 'đã bình luận' : notification.type === 'report_resolved' ? 'đã giải quyết báo cáo về' : 'đã chia sẻ'}
           </span>
           {' '}
-          <span className="text-gray-500">bài viết của bạn</span>
+          <span className="text-gray-500">{notification.type === 'report_resolved' ? 'bài viết của bạn' : 'bài viết của bạn'}</span>
         </p>
         <p className="text-xs text-gray-400 mt-1">
           {notification.createdAt?.toDate ? formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true, locale: vi }) : ''}
@@ -50,6 +51,8 @@ export default function NotificationsBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpenedBell, setHasOpenedBell] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -72,14 +75,28 @@ export default function NotificationsBell() {
 
   const router = useRouter();
 
-  const handleNotificationClick = async (notifId: string, articleId: string) => {
+  const handleNotificationClick = async (notification: any) => {
     setIsOpen(false);
     try {
-      await updateDoc(doc(db, 'notifications', notifId), { read: true });
+      await updateDoc(doc(db, 'notifications', notification.id), { read: true });
+      
+      if (notification.type === 'report_resolved') {
+        // Fetch current user display name
+        const userRef = doc(db, 'users', notification.targetId);
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          setUserName(getDisplayName({ displayName: userData.displayName, phoneNumber: userData.phoneNumber }));
+        } else {
+          setUserName('Bạn');
+        }
+        setIsReportModalOpen(true);
+      } else {
+        router.push(`/article/${notification.articleId}`);
+      }
     } catch (e) {
       console.error("Error marking notification as read:", e);
     }
-    router.push(`/article/${articleId}`);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -131,13 +148,18 @@ export default function NotificationsBell() {
                 <NotificationItem 
                   key={n.id} 
                   notification={n} 
-                  onClick={() => handleNotificationClick(n.id, n.articleId)}
+                  onClick={() => handleNotificationClick(n)}
                 />
               ))
             )}
           </div>
         </div>
       )}
+      <ReportResolvedModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+        username={userName} 
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { MessageCircle, Heart, Share2, MoreHorizontal, Loader2, Edit2, Trash2, E
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
 import CommentsModal from './CommentsModal';
+import ReportModal from './ReportModal';
 import { useAuth } from './AuthProvider';
 import { db, addNotification } from '@/lib/firebase';
 import { doc, writeBatch, onSnapshot, increment, updateDoc, getDoc } from 'firebase/firestore';
@@ -19,6 +20,7 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
   const { user } = useAuth();
   const [article, setArticle] = useState<ArticleData>(initialArticle);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -275,7 +277,7 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
                   ) : (
                     <button 
                       onClick={() => {
-                        alert("Tính năng báo cáo đang được phát triển.");
+                        setIsReportModalOpen(true);
                         setShowMenu(false);
                       }}
                       className="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
@@ -424,6 +426,12 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
         onClose={() => setIsCommentsOpen(false)}
         articleId={article.id}
         articleAuthorId={article.authorId}
+      />
+
+      <ReportModal 
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        postId={article.id}
       />
 
       {isAuthor && (

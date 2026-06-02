@@ -64,6 +64,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["authorId", "content", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "A report of an article by a user.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "description": "The ID of the reported post." },
+        "reporterId": { "type": "string", "description": "The UID of the user who reported the post." },
+        "reason": { "type": "string", "description": "The reason for the report." },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "description": "Status of the report: 'pending', 'resolved', 'dismissed'." }
+      },
+      "required": ["postId", "reporterId", "reason", "timestamp", "status"]
     }
   },
   "firestore": {
@@ -90,6 +103,10 @@
     "articles/{articleId}/comments/{commentId}/likes/{userId}": {
       "schema": "object",
       "description": "Tracks which users liked the comment."
+    },
+    "reports/{reportId}": {
+      "schema": "Report",
+      "description": "Reports regarding content moderation."
     }
   }
 }
