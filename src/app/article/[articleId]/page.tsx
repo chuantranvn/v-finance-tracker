@@ -59,16 +59,16 @@ export default function ArticleDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] p-4 md:p-6 flex flex-col items-center">
-      <div className="w-full max-w-2xl mb-4">
+      <div className="w-full max-w-2xl">
         <button 
             onClick={() => router.push('/')}
-            className="flex items-center text-gray-600 hover:text-blue-600 transition-colors gap-2 font-medium"
+            className="flex items-center text-gray-600 hover:text-blue-600 transition-colors gap-2 font-medium mb-4"
         >
             <ArrowLeft className="w-5 h-5" />
             Về trang chủ
         </button>
+        <ArticleCard article={article} />
       </div>
-      <ArticleCard article={article} />
     </div>
   );
 }
