@@ -56,18 +56,17 @@ service cloud.firestore {
     }
 
     function isValidComment(data) {
-      // Use existing() for default values for updates.
-      let authorId = data.get('authorId', existing().authorId);
-      let content = data.get('content', existing().content);
+      let authorId = hasExisting() ? data.get('authorId', existing().authorId) : data.authorId;
+      let content = hasExisting() ? data.get('content', existing().content) : data.content;
       
       return authorId is string && authorId.size() <= 128 &&
              content is string && content.size() <= 1000 &&
-             (data.get('parentId', existing().get('parentId', '')) is string) &&
-             (data.get('authorName', existing().get('authorName', '')) is string) &&
-             (data.get('replyToId', existing().get('replyToId', '')) is string) &&
-             (data.get('replyToPhone', existing().get('replyToPhone', '')) is string) &&
-             (data.get('replyToName', existing().get('replyToName', '')) is string) &&
-             (data.get('likesCount', existing().get('likesCount', 0)) is number);
+             (hasExisting() ? data.get('parentId', existing().get('parentId', '')) : data.get('parentId', '')) is string &&
+             (hasExisting() ? data.get('authorName', existing().get('authorName', '')) : data.get('authorName', '')) is string &&
+             (hasExisting() ? data.get('replyToId', existing().get('replyToId', '')) : data.get('replyToId', '')) is string &&
+             (hasExisting() ? data.get('replyToPhone', existing().get('replyToPhone', '')) : data.get('replyToPhone', '')) is string &&
+             (hasExisting() ? data.get('replyToName', existing().get('replyToName', '')) : data.get('replyToName', '')) is string &&
+             (hasExisting() ? data.get('likesCount', existing().get('likesCount', 0)) : data.get('likesCount', 0)) is number;
     }
 
     function hasExisting() { return resource != null; }
