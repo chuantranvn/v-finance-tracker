@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { useAuth } from './AuthProvider';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale/vi';
@@ -82,6 +82,22 @@ export default function NotificationsBell() {
     router.push(`/article/${articleId}`);
   };
 
+  const handleMarkAllAsRead = async () => {
+    const unreadNotifications = notifications.filter(n => !n.read);
+    if (unreadNotifications.length === 0) return;
+
+    const batch = writeBatch(db);
+    unreadNotifications.forEach(n => {
+      batch.update(doc(db, 'notifications', n.id), { read: true });
+    });
+
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error("Error marking all notifications as read:", e);
+    }
+  };
+
   return (
     <div className="relative">
       <button 
@@ -99,7 +115,14 @@ export default function NotificationsBell() {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
-          <div className="px-4 py-2 font-bold text-gray-900 border-b border-gray-100">Thông báo</div>
+          <div className="px-4 py-2 font-bold text-gray-900 border-b border-gray-100 flex items-center justify-between">
+            <span>Thông báo</span>
+            {unreadCount > 0 && (
+              <button onClick={handleMarkAllAsRead} className="text-xs text-blue-600 font-medium hover:text-blue-700">
+                Xem tất cả
+              </button>
+            )}
+          </div>
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="px-4 py-4 text-sm text-gray-500">Chưa có thông báo.</div>
