@@ -20,6 +20,7 @@ export interface ArticleData {
   commentsCount: number;
   isDeleted?: boolean;
   isHidden?: boolean;
+  isBlockedByAdmin?: boolean;
   sharedArticleId?: string | null;
   imageUrl?: string;
   imageUrls?: string[];

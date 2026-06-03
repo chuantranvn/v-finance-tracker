@@ -179,6 +179,8 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
   }, [article.createdAt, initialArticle.createdAt, isMounted]);
 
   if (article.isDeleted) return null;
+  
+  const isBlocked = article.isBlockedByAdmin;
 
   return (
     <>
@@ -186,8 +188,16 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
         layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow w-full"
+        className={cn(
+          "rounded-3xl p-6 shadow-sm border transition-shadow w-full",
+          isBlocked ? "bg-gray-100 border-red-300" : "bg-white border-gray-100 hover:shadow-md"
+        )}
       >
+        {isBlocked && (
+          <div className="mb-4 p-2 bg-red-100 border border-red-500 text-red-700 font-bold rounded-lg text-sm text-center">
+            Bài viết đã bị ẩn bởi quản trị viên
+          </div>
+        )}
         <div className="flex items-center justify-between mb-4">
           <div className="flex flex-col gap-1">
             <AuthorInfo 
