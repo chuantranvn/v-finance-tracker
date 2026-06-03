@@ -6,12 +6,15 @@ import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp,
 import { useAuth } from '../AuthProvider';
 import ActionReportModal from './ActionReportModal';
 import PostPreviewModal from './PostPreviewModal';
+import { Search, Filter } from 'lucide-react';
 
 export default function AdminReports() {
   const { user } = useAuth();
   const [reports, setReports] = useState<any[]>([]);
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [previewPostId, setPreviewPostId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'resolved' | 'dismissed'>('all');
 
   useEffect(() => {
     if (!user) return;
@@ -99,11 +102,42 @@ export default function AdminReports() {
     }
   };
 
+  const filteredReports = reports.filter(report => {
+    const matchesSearch = report.postId.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          report.reason.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
-      <h2 className="text-2xl font-bold mb-6">Báo cáo</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Báo cáo</h2>
+        <div className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input 
+              type="text" 
+              placeholder="Tìm kiếm..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border rounded-lg text-sm"
+            />
+          </div>
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-4 py-2 border rounded-lg text-sm"
+          >
+            <option value="all">Tất cả</option>
+            <option value="pending">Pending</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+        </div>
+      </div>
       <div className="space-y-4">
-        {reports.map(report => (
+        {filteredReports.map(report => (
           <div key={report.id} className="border border-gray-100 p-4 rounded-xl flex justify-between items-center">
             <div className="cursor-pointer flex-1" onClick={() => setPreviewPostId(report.postId)}>
               <p className="font-bold">Post ID: {report.postId}</p>

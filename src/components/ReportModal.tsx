@@ -27,7 +27,7 @@ export default function ReportModal({ isOpen, onClose, postId }: ReportModalProp
         postId,
         reporterId: user.uid,
         reason: reason.trim(),
-        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
         status: 'pending'
       });
       onClose();
