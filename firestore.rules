@@ -94,7 +94,7 @@ service cloud.firestore {
     match /articles/{articleId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidArticle(incoming()) && incoming().authorId == request.auth.uid && isValidId(articleId);
-      allow update: if isSignedIn() && isValidArticle(incoming()) && incoming().authorId == existing().authorId && (
+      allow update: if (isSignedIn() && isValidArticle(incoming()) && incoming().authorId == existing().authorId && (
         // Action: Edit Article / Toggle Visibility (Owner only)
         (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt', 'isHidden'])) ||
         // Action: Increment Comment Count (Anyone)
@@ -104,7 +104,7 @@ service cloud.firestore {
           (incoming().likesCount == existing().get('likesCount', 0) + 1 && existsAfter(/databases/$(database)/documents/articles/$(articleId)/likes/$(request.auth.uid))) ||
           (incoming().likesCount == existing().get('likesCount', 0) - 1 && !existsAfter(/databases/$(database)/documents/articles/$(articleId)/likes/$(request.auth.uid)))
         ))
-      );
+      )) || isAdmin();
       allow delete: if isOwner(existing().authorId) || isAdmin();
 
       match /likes/{userId} {
@@ -137,10 +137,10 @@ service cloud.firestore {
       allow list: if isAdmin(); // Users cannot list other users
       
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && (
         // Action: Update Profile Info (displayName, photoURL)
         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt'])
-      );
+      )) || isAdmin();
       allow delete: if isAdmin(); // Profiles are immortal for users
     }
 
