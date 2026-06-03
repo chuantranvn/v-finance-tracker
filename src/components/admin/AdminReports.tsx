@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useAuth } from '../AuthProvider';
+import ActionReportModal from './ActionReportModal';
 
 export default function AdminReports() {
   const { user } = useAuth();
   const [reports, setReports] = useState<any[]>([]);
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -31,22 +33,28 @@ export default function AdminReports() {
     return () => { if (unsubscribe) unsubscribe(); };
   }, [user]);
 
-  const updateReportStatus = async (reportId: string, status: 'resolved' | 'dismissed', reporterId: string, postId: string) => {
-    if (!user) return;
+  const handleAction = async (status: 'resolved' | 'dismissed', note: string) => {
+    if (!user || !selectedReport) return;
     try {
-      await updateDoc(doc(db, 'reports', reportId), { status });
+      await updateDoc(doc(db, 'reports', selectedReport.id), { 
+        status,
+        moderatorNote: note,
+        moderatorId: user.uid,
+        resolvedAt: serverTimestamp()
+      });
       
       if (status === 'resolved') {
         await addDoc(collection(db, 'notifications'), {
           type: 'report_resolved',
           actorId: user.uid,
-          targetId: reporterId,
-          articleId: postId,
+          targetId: selectedReport.reporterId,
+          articleId: selectedReport.postId,
           read: false,
           createdAt: serverTimestamp()
         });
       }
-      alert(`Đã ${status === 'resolved' ? 'giải quyết' : 'từ chối'} báo cáo.`);
+      alert(`Đã ${status === 'resolved' ? 'giải quyết' : 'từ chối'} báo cáo: ${note}`);
+      setSelectedReport(null);
     } catch (e) {
       console.error(e);
       alert('Lỗi cập nhật báo cáo.');
@@ -65,26 +73,28 @@ export default function AdminReports() {
               <p className={`text-xs mt-1 ${report.status === 'pending' ? 'text-yellow-600' : report.status === 'resolved' ? 'text-green-600' : 'text-red-500'}`}>
                 Trạng thái: {report.status}
               </p>
+              {report.moderatorNote && <p className="text-sm mt-2 italic text-gray-500">Ghi chú: {report.moderatorNote}</p>}
             </div>
             {report.status === 'pending' && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => updateReportStatus(report.id, 'dismissed', report.reporterId, report.postId)}
-                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
-                >
-                  Từ chối
-                </button>
-                <button 
-                  onClick={() => updateReportStatus(report.id, 'resolved', report.reporterId, report.postId)}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
-                >
-                  Giải quyết
-                </button>
-              </div>
+              <button 
+                onClick={() => setSelectedReport(report)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+              >
+                Xử lý
+              </button>
             )}
           </div>
         ))}
       </div>
+      
+      {selectedReport && (
+        <ActionReportModal 
+          isOpen={!!selectedReport}
+          onClose={() => setSelectedReport(null)}
+          onConfirm={handleAction}
+          reportId={selectedReport.id}
+        />
+      )}
     </div>
   );
 }
