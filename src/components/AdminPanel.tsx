@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { LayoutDashboard, AlertTriangle, Users } from 'lucide-react';
 import AdminReports from './admin/AdminReports';
 import AdminDashboard from './admin/AdminDashboard';
+import UserManagement from './admin/UserManagement';
 
 type Section = 'dashboard' | 'reports' | 'users';
 
@@ -43,7 +44,7 @@ export default function AdminPanel() {
       <main className="flex-1 p-8 overflow-y-auto">
         {activeSection === 'reports' && <AdminReports />}
         {activeSection === 'dashboard' && <AdminDashboard />}
-        {activeSection === 'users' && <div className="p-6 bg-white rounded-2xl shadow-sm">User Management (Coming Soon)</div>}
+        {activeSection === 'users' && <UserManagement />}
       </main>
     </div>
   );
