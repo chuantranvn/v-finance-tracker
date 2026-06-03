@@ -111,7 +111,7 @@ export default function AdminReports() {
       setSelectedReport(null);
     } catch (e) {
       console.error(e);
-      alert('Lỗi cập nhật báo cáo.');
+      alert('Lỗi cập nhật báo cáo: ' + (e as Error).message);
     }
   };
 

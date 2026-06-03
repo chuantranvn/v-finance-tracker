@@ -160,7 +160,7 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && (
         (request.resource.data.actorId == request.auth.uid && request.resource.data.type in ['like', 'comment', 'share']) ||
-        (isAdmin() && request.resource.data.type in ['report_resolved', 'report_dismissed'])
+        (isAdmin() && request.resource.data.type in ['report_resolved', 'report_dismissed', 'admin_action'])
       );
       
       allow update: if isSignedIn() && resource.data.targetId == request.auth.uid && 
