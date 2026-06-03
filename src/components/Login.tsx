@@ -33,10 +33,13 @@ export default function Login() {
     const initRecaptcha = async () => {
       try {
         const firebaseAuth = auth;
-        if (!firebaseAuth) return;
+        if (!firebaseAuth || !recaptchaRef.current) return;
+
+        // Clear existing content to prevent 'already rendered' errors
+        recaptchaRef.current.innerHTML = '';
 
         // Use 'normal' size (checkbox) as it's often more reliable in iframes
-        const verifier = new RecaptchaVerifier(firebaseAuth, recaptchaRef.current!, {
+        const verifier = new RecaptchaVerifier(firebaseAuth, recaptchaRef.current, {
           size: 'invisible',
           callback: () => {
             console.log('reCAPTCHA solved');
@@ -70,9 +73,11 @@ export default function Login() {
         } catch (e) {
           // Ignore
         }
+        verifierInstanceRef.current = null;
+        setRecaptchaVerifier(null);
       }
     };
-  }, [recaptchaVerifier]); // Only depend on recaptchaVerifier to avoid re-init
+  }, []); // Remove dependencies to run only on mount/unmount
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();

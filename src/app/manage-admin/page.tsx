@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import AdminPanel from '@/components/AdminPanel';
 import { db } from '@/lib/firebase';
@@ -9,22 +9,20 @@ import { doc, getDoc } from 'firebase/firestore';
 
 export default function ManageAdminPage() {
   const { user, loading: authLoading } = useAuth();
-  const params = useParams();
   const router = useRouter();
-  const uid = params.uid as string;
 
   const [authorized, setAuthorized] = useState<'loading' | 'authorized' | 'unauthorized'>('loading');
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || user.uid !== uid) {
+    if (!user) {
       setAuthorized('unauthorized');
       return;
     }
 
     const checkAdminRole = async () => {
       try {
-        const adminDoc = await getDoc(doc(db, 'admins', uid));
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
         if (adminDoc.exists() && adminDoc.data().role === 'superadmin') {
           setAuthorized('authorized');
         } else {
@@ -36,7 +34,7 @@ export default function ManageAdminPage() {
     };
 
     checkAdminRole();
-  }, [user, uid, authLoading]);
+  }, [user, authLoading]);
 
   if (authorized === 'loading') {
     return (
