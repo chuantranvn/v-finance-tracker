@@ -7,6 +7,8 @@ import { useAuth } from '../AuthProvider';
 import ActionReportModal from './ActionReportModal';
 import PostPreviewModal from './PostPreviewModal';
 import { Search, Filter } from 'lucide-react';
+import { sendNotification } from '@/services/notificationService';
+import { updateArticleStatus } from '@/services/articleService';
 
 export default function AdminReports() {
   const { user } = useAuth();
@@ -67,12 +69,11 @@ export default function AdminReports() {
         resolvedAt: serverTimestamp()
       });
       
-      if (actions.deletePost) {
-        await updateDoc(doc(db, 'articles', selectedReport.postId), { isDeleted: true });
-      }
-      
-      if (actions.blockPost) {
-        await updateDoc(doc(db, 'articles', selectedReport.postId), { isBlockedByAdmin: true });
+      const articleUpdates: { isDeleted?: boolean; isBlockedByAdmin?: boolean } = {};
+      if (actions.deletePost) articleUpdates.isDeleted = true;
+      if (actions.blockPost) articleUpdates.isBlockedByAdmin = true;
+      if (Object.keys(articleUpdates).length > 0) {
+        await updateArticleStatus(selectedReport.postId, articleUpdates);
       }
 
       if (actions.blockUser && authorId) {
@@ -81,15 +82,13 @@ export default function AdminReports() {
       
       // 3. Notify owner
       if (authorId && (actions.deletePost || actions.blockPost || actions.blockUser)) {
-        await addDoc(collection(db, 'notifications'), {
-          type: 'admin_action',
-          actorId: user.uid,
-          targetId: authorId,
-          articleId: selectedReport.postId,
-          message: `Bài viết của bạn đã bị ${actions.deletePost ? 'xóa' : 'ẩn'} bởi quản trị viên. Ghi chú: ${note}`,
-          read: false,
-          createdAt: serverTimestamp()
-        });
+        await sendNotification(
+          'admin_action',
+          user.uid,
+          authorId,
+          `Bài viết của bạn đã bị ${actions.deletePost ? 'xóa' : 'ẩn'} bởi quản trị viên. Ghi chú: ${note}`,
+          selectedReport.postId
+        );
       }
       
       if (status === 'resolved' || status === 'dismissed') {
@@ -97,15 +96,13 @@ export default function AdminReports() {
           ? 'Báo cáo của bạn đã được giải quyết.' 
           : `Chúng tôi đã xem xét và thông báo với bạn rằng bài viết của ${authorName} không vi phạm tiêu chuẩn cộng đồng`;
 
-        await addDoc(collection(db, 'notifications'), {
-          type: status === 'resolved' ? 'report_resolved' : 'report_dismissed',
-          actorId: user.uid,
-          targetId: selectedReport.reporterId,
-          articleId: selectedReport.postId,
+        await sendNotification(
+          status === 'resolved' ? 'report_resolved' : 'report_dismissed',
+          user.uid,
+          selectedReport.reporterId,
           message,
-          read: false,
-          createdAt: serverTimestamp()
-        });
+          selectedReport.postId
+        );
       }
       alert(`Đã ${status === 'resolved' ? 'giải quyết' : 'từ chối'} báo cáo: ${note}`);
       setSelectedReport(null);
