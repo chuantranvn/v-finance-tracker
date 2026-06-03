@@ -29,15 +29,19 @@ const NotificationItem = ({ notification, onClick }: { notification: any, onClic
     <div onClick={onClick} className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer text-sm flex items-center gap-3">
       {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />}
       <div className={cn(!notification.read && "font-medium")}>
-        <p>
-          <span className="font-bold">{notification.type === 'report_resolved' ? 'Quản trị viên' : senderName}</span>
-          {' '}
-          <span className="text-gray-700">
-            {notification.type === 'like' ? 'đã thích' : notification.type === 'comment' ? 'đã bình luận' : notification.type === 'report_resolved' ? 'đã giải quyết báo cáo về' : 'đã chia sẻ'}
-          </span>
-          {' '}
-          <span className="text-gray-500">{notification.type === 'report_resolved' ? 'bài viết của bạn' : 'bài viết của bạn'}</span>
-        </p>
+        {notification.message ? (
+          <p className="text-gray-700">{notification.message}</p>
+        ) : (
+          <p>
+            <span className="font-bold">{notification.type === 'report_resolved' ? 'Quản trị viên' : senderName}</span>
+            {' '}
+            <span className="text-gray-700">
+              {notification.type === 'like' ? 'đã thích' : notification.type === 'comment' ? 'đã bình luận' : notification.type === 'report_resolved' ? 'đã giải quyết báo cáo về' : 'đã chia sẻ'}
+            </span>
+            {' '}
+            <span className="text-gray-500">{notification.type === 'report_resolved' ? 'bài viết của bạn' : 'bài viết của bạn'}</span>
+          </p>
+        )}
         <p className="text-xs text-gray-400 mt-1">
           {notification.createdAt?.toDate ? formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true, locale: vi }) : ''}
         </p>
