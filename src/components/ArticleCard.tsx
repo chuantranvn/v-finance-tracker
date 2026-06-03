@@ -223,12 +223,14 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
           </div>
           
           <div className="relative" ref={menuRef}>
-            <button 
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 text-gray-400 hover:bg-gray-50 rounded-full transition-colors"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
+            {!isBlocked && (
+              <button 
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 text-gray-400 hover:bg-gray-50 rounded-full transition-colors"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+            )}
 
             <AnimatePresence>
               {showMenu && (
@@ -314,10 +316,12 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
             {article.imageUrls.map((url, index) => (
               <div 
                 key={index} 
-                onClick={() => setSelectedImageIndex(index)}
-                className={`rounded-xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity ${
+                onClick={() => !isBlocked && setSelectedImageIndex(index)}
+                className={cn(
+                  "rounded-xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity",
+                  isBlocked && "cursor-not-allowed opacity-50",
                   article.imageUrls!.length === 3 && index === 0 ? 'col-span-2 aspect-video' : 'aspect-square'
-                }`}
+                )}
               >
                 <img src={url} alt={`Attachment ${index + 1}`} className="w-full h-full object-cover" loading="lazy" />
               </div>
@@ -325,8 +329,11 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
           </div>
         ) : article.imageUrl || (article.imageUrls && article.imageUrls.length === 1) ? (
           <div 
-            onClick={() => setSelectedImageIndex(0)}
-            className="mb-6 rounded-2xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center max-h-[500px] cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => !isBlocked && setSelectedImageIndex(0)}
+            className={cn(
+              "mb-6 rounded-2xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center max-h-[500px] cursor-pointer hover:opacity-90 transition-opacity",
+              isBlocked && "cursor-not-allowed opacity-50"
+            )}
           >
             <img 
               src={article.imageUrls?.[0] || article.imageUrl} 
@@ -361,8 +368,11 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
                     {sharedArticleContent.imageUrls.slice(0, 2).map((url, i) => (
                       <div 
                         key={i} 
-                        onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(i); }}
-                        className="rounded-lg overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center aspect-video cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); !isBlocked && setSelectedImageIndex(i); }}
+                        className={cn(
+                          "rounded-lg overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center aspect-video cursor-pointer hover:opacity-90 transition-opacity",
+                          isBlocked && "cursor-not-allowed opacity-50"
+                        )}
                       >
                         <img src={url} alt={`Shared attachment ${i}`} className="w-full h-full object-cover" loading="lazy" />
                       </div>
@@ -370,8 +380,11 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
                   </div>
                 ) : (sharedArticleContent.imageUrl || (sharedArticleContent.imageUrls && sharedArticleContent.imageUrls.length === 1)) ? (
                   <div 
-                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(0); }}
-                    className="mt-2 rounded-xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center max-h-32 cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); !isBlocked && setSelectedImageIndex(0); }}
+                    className={cn(
+                      "mt-2 rounded-xl overflow-hidden border border-gray-100 bg-black/5 flex items-center justify-center max-h-32 cursor-pointer hover:opacity-90 transition-opacity",
+                      isBlocked && "cursor-not-allowed opacity-50"
+                    )}
                   >
                      <img 
                        src={sharedArticleContent.imageUrls?.[0] || sharedArticleContent.imageUrl} 
@@ -393,16 +406,16 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
 
         <div className="flex items-center gap-6 pt-4 border-t border-gray-50">
           <button 
-            onClick={handleLike}
-            disabled={isLiking}
+            onClick={isBlocked ? undefined : handleLike}
+            disabled={isLiking || isBlocked}
             className={cn(
               "flex items-center gap-2 transition-colors group",
-              isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500"
+              isBlocked ? "opacity-50 cursor-not-allowed" : (isLiked ? "text-red-500" : "text-gray-500 hover:text-red-500")
             )}
           >
             <div className={cn(
               "p-2 rounded-lg transition-colors",
-              isLiked ? "bg-red-50" : "group-hover:bg-red-50"
+              isLiked ? "bg-red-50" : (!isBlocked && "group-hover:bg-red-50")
             )}>
               <Heart className={cn("w-5 h-5", isLiked && "fill-current")} />
             </div>
@@ -410,20 +423,28 @@ export default function ArticleCard({ article: initialArticle, onShare }: { arti
           </button>
 
           <button 
-            onClick={() => setIsCommentsOpen(true)}
-            className="flex items-center gap-2 text-gray-500 hover:text-blue-500 transition-colors group"
+            onClick={isBlocked ? undefined : () => setIsCommentsOpen(true)}
+            disabled={isBlocked}
+            className={cn(
+              "flex items-center gap-2 transition-colors group",
+              isBlocked ? "opacity-50 cursor-not-allowed" : "text-gray-500 hover:text-blue-500"
+            )}
           >
-            <div className="p-2 group-hover:bg-blue-50 rounded-lg transition-colors">
+            <div className={cn("p-2 rounded-lg transition-colors", !isBlocked && "group-hover:bg-blue-50")}>
               <MessageCircle className="w-5 h-5" />
             </div>
             <span className="text-sm font-medium">{article.commentsCount || 0}</span>
           </button>
 
           <button 
-            onClick={handleShareClick}
-            className="flex items-center gap-2 text-gray-500 hover:text-green-500 transition-colors group ml-auto"
+            onClick={isBlocked ? undefined : handleShareClick}
+            disabled={isBlocked}
+            className={cn(
+              "flex items-center gap-2 transition-colors group ml-auto",
+              isBlocked ? "opacity-50 cursor-not-allowed" : "text-gray-500 hover:text-green-500"
+            )}
           >
-            <div className="p-2 group-hover:bg-green-50 rounded-lg transition-colors">
+            <div className={cn("p-2 rounded-lg transition-colors", !isBlocked && "group-hover:bg-green-50")}>
               <Share2 className="w-5 h-5" />
             </div>
           </button>
