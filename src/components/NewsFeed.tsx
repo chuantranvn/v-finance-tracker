@@ -62,8 +62,8 @@ export default function NewsFeed({ onShareArticle }: NewsFeedProps) {
         ...doc.data()
       })) as ArticleData[];
 
-      // In home feed, filter out hidden articles
-      const filteredArticles = fetchedArticles.filter(a => !a.isHidden);
+      // In home feed, filter out hidden articles and admin-blocked articles
+      const filteredArticles = fetchedArticles.filter(a => !a.isHidden && a.isBlockedByAdmin !== true);
 
       if (isLoadMore) {
         setArticles(prev => [...prev, ...filteredArticles]);
