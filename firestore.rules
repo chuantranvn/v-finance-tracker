@@ -74,12 +74,12 @@ service cloud.firestore {
     }
 
     function isValidReport(data) {
-      return data.keys().hasAll(['postId', 'reporterId', 'reason', 'timestamp', 'status']) &&
+      return data.keys().hasAll(['postId', 'reporterId', 'reason', 'createdAt', 'status']) &&
              data.postId is string && data.postId.size() > 0 &&
              data.reporterId is string && data.reporterId.size() > 0 &&
              data.reporterId == request.auth.uid &&
              data.reason is string && data.reason.size() > 0 &&
-             data.timestamp is timestamp &&
+             data.createdAt is timestamp &&
              data.status in ['pending', 'resolved', 'dismissed'];
     }
 
