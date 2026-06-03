@@ -46,10 +46,18 @@ export default function AdminReports() {
   const handleAction = async (status: 'resolved' | 'dismissed', note: string, actions: { deletePost: boolean; blockPost: boolean; blockUser: boolean }) => {
     if (!user || !selectedReport) return;
     try {
-      // 1. Get article details to find owner
+      // 1. Get article details to find author
       const articleDoc = await getDoc(doc(db, 'articles', selectedReport.postId));
       const articleData = articleDoc.exists() ? articleDoc.data() : null;
-      const ownerId = articleData?.ownerId;
+      const authorId = articleData?.authorId;
+      
+      let authorName = 'người dùng';
+      if (authorId) {
+        const userDoc = await getDoc(doc(db, 'users', authorId));
+        if (userDoc.exists()) {
+          authorName = userDoc.data().displayName || 'người dùng';
+        }
+      }
 
       // 2. Perform actions
       await updateDoc(doc(db, 'reports', selectedReport.id), { 
@@ -67,16 +75,16 @@ export default function AdminReports() {
         await updateDoc(doc(db, 'articles', selectedReport.postId), { isBlockedByAdmin: true });
       }
 
-      if (actions.blockUser && ownerId) {
-        await updateDoc(doc(db, 'users', ownerId), { status: 'blocked' });
+      if (actions.blockUser && authorId) {
+        await updateDoc(doc(db, 'users', authorId), { status: 'blocked' });
       }
       
       // 3. Notify owner
-      if (ownerId && (actions.deletePost || actions.blockPost || actions.blockUser)) {
+      if (authorId && (actions.deletePost || actions.blockPost || actions.blockUser)) {
         await addDoc(collection(db, 'notifications'), {
           type: 'admin_action',
           actorId: user.uid,
-          targetId: ownerId,
+          targetId: authorId,
           articleId: selectedReport.postId,
           message: `Bài viết của bạn đã bị ${actions.deletePost ? 'xóa' : 'ẩn'} bởi quản trị viên. Ghi chú: ${note}`,
           read: false,
@@ -84,12 +92,17 @@ export default function AdminReports() {
         });
       }
       
-      if (status === 'resolved') {
+      if (status === 'resolved' || status === 'dismissed') {
+        const message = status === 'resolved' 
+          ? 'Báo cáo của bạn đã được giải quyết.' 
+          : `Chúng tôi đã xem xét và thông báo với bạn rằng bài viết của ${authorName} không vi phạm tiêu chuẩn cộng đồng`;
+
         await addDoc(collection(db, 'notifications'), {
-          type: 'report_resolved',
+          type: status === 'resolved' ? 'report_resolved' : 'report_dismissed',
           actorId: user.uid,
           targetId: selectedReport.reporterId,
           articleId: selectedReport.postId,
+          message,
           read: false,
           createdAt: serverTimestamp()
         });
