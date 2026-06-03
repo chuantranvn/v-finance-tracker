@@ -15,13 +15,16 @@ export default function AdminReports() {
 
   useEffect(() => {
     if (!user) return;
+
+    let unsubscribeReports: () => void;
+
     const checkAdmin = async () => {
       try {
         const adminDoc = await getDoc(doc(db, 'admins', user.uid));
         if (!adminDoc.exists() || adminDoc.data().role !== 'superadmin') return;
 
         const q = query(collection(db, 'reports'));
-        return onSnapshot(q, (snapshot) => {
+        unsubscribeReports = onSnapshot(q, (snapshot) => {
           const reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           setReports(reportsData);
         });
@@ -30,9 +33,11 @@ export default function AdminReports() {
       }
     };
 
-    let unsubscribe: any;
-    checkAdmin().then(unsub => unsubscribe = unsub);
-    return () => { if (unsubscribe) unsubscribe(); };
+    checkAdmin();
+
+    return () => {
+      if (unsubscribeReports) unsubscribeReports();
+    };
   }, [user]);
 
   const handleAction = async (status: 'resolved' | 'dismissed', note: string, actions: { deletePost: boolean; blockPost: boolean; blockUser: boolean }) => {
@@ -103,6 +108,14 @@ export default function AdminReports() {
             <div className="cursor-pointer flex-1" onClick={() => setPreviewPostId(report.postId)}>
               <p className="font-bold">Post ID: {report.postId}</p>
               <p className="text-sm text-gray-600">Lý do: {report.reason}</p>
+              <p className="text-xs text-gray-500">
+                Tạo lúc: {report.createdAt?.toDate ? report.createdAt.toDate().toLocaleString() : 'N/A'}
+              </p>
+              {report.resolvedAt && (
+                <p className="text-xs text-gray-500">
+                  Giải quyết lúc: {report.resolvedAt.toDate().toLocaleString()}
+                </p>
+              )}
               <p className={`text-xs mt-1 ${report.status === 'pending' ? 'text-yellow-600' : report.status === 'resolved' ? 'text-green-600' : 'text-red-500'}`}>
                 Trạng thái: {report.status}
               </p>
