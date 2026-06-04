@@ -1,20 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/types';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical, User, Shield, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Mock user fetching
     setUsers([
-        { id: '1', displayName: 'User 1', email: 'user1@test.com', role: 'user' },
-        { id: '2', displayName: 'User 2', email: 'user2@test.com', role: 'admin' },
+      { id: '1', displayName: 'Nguyễn Văn A', email: 'user1@test.com', role: 'user' },
+      { id: '2', displayName: 'Trần Thị B', email: 'user2@test.com', role: 'admin' },
+      { id: '3', displayName: 'Lê Văn C', email: 'user3@test.com', role: 'superadmin' },
     ] as any);
+
+    // Close menu when clicking outside
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleAction = (userId: string, action: string) => {
@@ -22,41 +31,60 @@ export default function UserManagement() {
     setMenuOpen(null);
   }
 
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'superadmin': return <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-semibold">Super Admin</span>;
+      case 'admin': return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold">Admin</span>;
+      default: return <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">User</span>;
+    }
+  }
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">Quản lý người dùng</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {users.map(user => (
-          <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between">
-                <div className="font-medium">{user.displayName}</div>
-                <div className="relative">
-                    <button onClick={() => setMenuOpen(menuOpen === user.id ? null : user.id)}>
-                        <MoreVertical className="w-5 h-5 cursor-pointer" />
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="max-w-5xl mx-auto">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Quản lý người dùng</h2>
+        
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 font-semibold text-gray-700">Người dùng</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Email</th>
+                <th className="px-6 py-4 font-semibold text-gray-700">Quyền</th>
+                <th className="px-6 py-4"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {users.map(user => (
+                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                      <User size={20} />
+                    </div>
+                    <span className="font-medium text-gray-900">{user.displayName}</span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600">{user.email}</td>
+                  <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                      onClick={() => setMenuOpen(menuOpen === user.id ? null : user.id)}
+                    >
+                      <MoreVertical className="w-5 h-5 text-gray-500" />
                     </button>
                     {menuOpen === user.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10 p-2">
-                            <button className="block w-full text-left p-2 text-sm hover:bg-gray-100 rounded" onClick={() => handleAction(user.id, 'block')}>Block User</button>
-                            <button className="block w-full text-left p-2 text-sm hover:bg-gray-100 rounded" onClick={() => handleAction(user.id, 'admin')}>Assign Admin</button>
-                            <button className="block w-full text-left p-2 text-sm hover:bg-gray-100 rounded" onClick={() => handleAction(user.id, 'superadmin')}>Assign Super Admin</button>
-                            <button className="block w-full text-left p-2 text-sm hover:bg-gray-100 rounded" onClick={() => handleAction(user.id, 'revoke')}>Thu hồi quyền</button>
-                        </div>
+                      <div ref={menuRef} className="absolute right-10 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 p-2">
+                        <button className="flex items-center gap-2 w-full p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg" onClick={() => handleAction(user.id, 'block')}><Ban size={16} /> Khóa tài khoản</button>
+                        <button className="flex items-center gap-2 w-full p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg" onClick={() => handleAction(user.id, 'admin')}><Shield size={16} /> Gán Admin</button>
+                        <button className="flex items-center gap-2 w-full p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg" onClick={() => handleAction(user.id, 'superadmin')}><Shield size={16} /> Gán Super Admin</button>
+                      </div>
                     )}
-                </div>
-            </div>
-            
-            <button className="text-sm text-blue-500 mt-2 font-medium" onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}>
-                {expandedUser === user.id ? 'Thu gọn' : 'Xem thông tin'}
-            </button>
-            
-            {expandedUser === user.id && (
-                <div className="mt-4 pt-4 border-t text-sm text-gray-600 space-y-1">
-                    <p><span className="font-medium text-gray-800">Email:</span> {user.email}</p>
-                    <p><span className="font-medium text-gray-800">Role:</span> {user.role}</p>
-                </div>
-            )}
-          </div>
-        ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
