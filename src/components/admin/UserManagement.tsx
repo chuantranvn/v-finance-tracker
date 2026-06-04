@@ -1,20 +1,30 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/types';
 import { MoreVertical, User, Shield, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchAllUsers, updateUserRole } from '@/services/userService';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Mock user fetching
-    setUsers([
-      { id: '1', displayName: 'Nguyễn Văn A', email: 'user1@test.com', role: 'user' },
-      { id: '2', displayName: 'Trần Thị B', email: 'user2@test.com', role: 'admin' },
-      { id: '3', displayName: 'Lê Văn C', email: 'user3@test.com', role: 'superadmin' },
-    ] as any);
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchAllUsers();
+        setUsers(data);
+      } catch (e) {
+        console.error("Error loading users:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUsers();
 
     // Close menu when clicking outside
     function handleClickOutside(event: MouseEvent) {
@@ -26,10 +36,17 @@ export default function UserManagement() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleAction = (userId: string, action: string) => {
-    console.log(action, userId);
+  const handleAction = async (userId: string, role: string) => {
+    try {
+      await updateUserRole(userId, role);
+      // Refresh users
+      const data = await fetchAllUsers();
+      setUsers(data);
+    } catch (e) {
+      console.error("Error updating user role:", e);
+    }
     setMenuOpen(null);
-  }
+  };
 
   const getRoleBadge = (role: string) => {
     switch (role) {

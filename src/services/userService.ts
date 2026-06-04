@@ -1,14 +1,28 @@
 import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebaseDB, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { UserData } from '../types';
 
 export const fetchAllUsers = async (): Promise<UserData[]> => {
-  const usersRef = collection(db, 'users');
-  const snapshot = await getDocs(usersRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserData));
+  const db = getFirebaseDB();
+  if (!db) throw new Error("Firebase DB not initialized");
+  try {
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserData));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, 'users');
+    throw error;
+  }
 };
 
 export const updateUserRole = async (userId: string, role: string) => {
-  const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, { role });
+  const db = getFirebaseDB();
+  if (!db) throw new Error("Firebase DB not initialized");
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { role });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    throw error;
+  }
 };
