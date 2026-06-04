@@ -4,15 +4,35 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/types';
 import { MoreVertical, User, Shield, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { fetchAllUsers, updateUserRole } from '@/services/userService';
+import { fetchAllUsers, updateUserRole, checkIsAdmin } from '@/services/userService';
+import { getFirebaseAuth } from '@/lib/firebase';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const init = async () => {
+      const auth = getFirebaseAuth();
+      const user = auth?.currentUser;
+
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const adminStatus = await checkIsAdmin(user.uid);
+      setIsAdmin(adminStatus);
+
+      if (adminStatus) {
+        loadUsers();
+      }
+    };
+    init();
+
     const loadUsers = async () => {
       try {
         setLoading(true);
@@ -24,7 +44,6 @@ export default function UserManagement() {
         setLoading(false);
       }
     };
-    loadUsers();
 
     // Close menu when clicking outside
     function handleClickOutside(event: MouseEvent) {
@@ -54,6 +73,10 @@ export default function UserManagement() {
       case 'admin': return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold">Admin</span>;
       default: return <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">User</span>;
     }
+  }
+
+  if (!isAdmin) {
+    return <div className="p-6 text-center text-red-500 font-medium">Bạn không có quyền truy cập vào trang này.</div>;
   }
 
   return (

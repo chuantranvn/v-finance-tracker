@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, updateDoc, getDoc } from 'firebase/firestore';
 import { getFirebaseDB, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { UserData } from '../types';
 
@@ -24,5 +24,17 @@ export const updateUserRole = async (userId: string, role: string) => {
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     throw error;
+  }
+};
+
+export const checkIsAdmin = async (userId: string): Promise<boolean> => {
+  const db = getFirebaseDB();
+  if (!db) return false;
+  try {
+    const adminDoc = await getDoc(doc(db, 'admins', userId));
+    return adminDoc.exists();
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    return false;
   }
 };
