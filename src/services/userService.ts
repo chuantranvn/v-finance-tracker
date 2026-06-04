@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, updateDoc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getFirebaseDB, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { UserData } from '../types';
 
@@ -7,8 +7,20 @@ export const fetchAllUsers = async (): Promise<UserData[]> => {
   if (!db) throw new Error("Firebase DB not initialized");
   try {
     const usersRef = collection(db, 'users');
-    const snapshot = await getDocs(usersRef);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserData));
+    const adminsRef = collection(db, 'admins');
+    const [usersSnapshot, adminsSnapshot] = await Promise.all([
+      getDocs(usersRef),
+      getDocs(adminsRef)
+    ]);
+    const usersMap = new Map<string, UserData>();
+    usersSnapshot.docs.forEach(doc => usersMap.set(doc.id, { id: doc.id, ...doc.data() } as UserData));
+    adminsSnapshot.docs.forEach(doc => {
+      const user = usersMap.get(doc.id);
+      if (user) {
+        usersMap.set(doc.id, { ...user, role: doc.data().role });
+      }
+    });
+    return Array.from(usersMap.values());
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, 'users');
     throw error;
@@ -20,7 +32,15 @@ export const updateUserRole = async (userId: string, role: string) => {
   if (!db) throw new Error("Firebase DB not initialized");
   try {
     const userRef = doc(db, 'users', userId);
+    const adminRef = doc(db, 'admins', userId);
+
     await updateDoc(userRef, { role });
+
+    if (role === 'admin' || role === 'superadmin') {
+      await setDoc(adminRef, { role });
+    } else {
+      await deleteDoc(adminRef);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     throw error;
