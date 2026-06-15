@@ -1,18 +1,16 @@
 'use client';
-import { onAuthStateChanged } from 'firebase/auth';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/types';
 import { MoreVertical, User, Shield, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchAllUsers, updateUserRole, checkIsAdmin } from '@/services/userService';
 import { getFirebaseAuth } from '@/lib/firebase';
-import Login from '../Login';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<any>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -25,15 +23,13 @@ export default function UserManagement() {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setLoggedInUser(null);
-        setIsAdmin(false);
+        setIsAuthorized(false);
         setLoading(false);
         return;
       }
-      setLoggedInUser(user);
-
+      
       const adminStatus = await checkIsAdmin(user.uid);
-      setIsAdmin(adminStatus);
+      setIsAuthorized(adminStatus);
 
       if (adminStatus) {
         await loadUsers();
@@ -41,9 +37,7 @@ export default function UserManagement() {
       setLoading(false);
     });
 
-    return () => {
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   const loadUsers = async () => {
@@ -93,11 +87,7 @@ export default function UserManagement() {
     return <div className="p-6 text-center text-gray-500">Đang tải...</div>;
   }
 
-  if (!loggedInUser) {
-    return <div className="p-6"><Login /></div>;
-  }
-
-  if (!isAdmin) {
+  if (!isAuthorized) {
     return <div className="p-6 text-center text-red-500 font-medium">Bạn không có quyền truy cập vào trang này.</div>;
   }
 
