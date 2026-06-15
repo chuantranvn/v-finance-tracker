@@ -1,5 +1,4 @@
 'use client';
-
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/types';
@@ -7,6 +6,7 @@ import { MoreVertical, User, Shield, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchAllUsers, updateUserRole, checkIsAdmin } from '@/services/userService';
 import { getFirebaseAuth } from '@/lib/firebase';
+import Login from '../Login';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
@@ -94,7 +94,7 @@ export default function UserManagement() {
   }
 
   if (!loggedInUser) {
-    return <div className="p-6 text-center text-gray-700 font-medium">Bạn cần đăng nhập để truy cập trang này.</div>;
+    return <div className="p-6"><Login /></div>;
   }
 
   if (!isAdmin) {
