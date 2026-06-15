@@ -12,11 +12,6 @@ service cloud.firestore {
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isAdmin() { 
       let adminDoc = get(/databases/$(database)/documents/admins/$(request.auth.uid));
-      return isSignedIn() && adminDoc.data != null && (adminDoc.data.role == "superadmin" || adminDoc.data.role == "admin");
-    }
-
-    function isSuperAdmin() { 
-      let adminDoc = get(/databases/$(database)/documents/admins/$(request.auth.uid));
       return isSignedIn() && adminDoc.data != null && adminDoc.data.role == "superadmin";
     }
     function incoming() { return request.resource.data; }
@@ -94,7 +89,6 @@ service cloud.firestore {
 
     match /admins/{adminId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
     }
 
     match /articles/{articleId} {
@@ -147,9 +141,8 @@ service cloud.firestore {
         // Action: Update Profile Info (displayName, photoURL)
         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt'])
       )) || isAdmin();
-      allow delete: if isSuperAdmin(); // Profiles are immortal for normal admins
+      allow delete: if isAdmin(); // Profiles are immortal for users
     }
-
 
     match /users/{userId}/bookmarks/{bookmarkId} {
       allow read: if isOwner(userId) || isAdmin();

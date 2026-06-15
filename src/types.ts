@@ -1,12 +1,3 @@
-export interface UserData {
-  id: string;
-  email: string;
-  displayName: string;
-  avatarUrl?: string;
-  role: 'superadmin' | 'admin' | 'user';
-  status?: string;
-}
-
 export interface BookmarkData {
   id: string;
   symbol: string;
