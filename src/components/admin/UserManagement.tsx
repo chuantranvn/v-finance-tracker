@@ -1,5 +1,6 @@
 'use client';
 
+import { onAuthStateChanged } from 'firebase/auth';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserData } from '@/types';
 import { MoreVertical, User, Shield, Ban } from 'lucide-react';
@@ -9,18 +10,22 @@ import { getFirebaseAuth } from '@/lib/firebase';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const init = async () => {
-      const auth = getFirebaseAuth();
-      const user = auth?.currentUser;
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
 
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setIsAdmin(false);
+        setLoading(false);
         return;
       }
 
@@ -28,23 +33,29 @@ export default function UserManagement() {
       setIsAdmin(adminStatus);
 
       if (adminStatus) {
-        loadUsers();
+        await loadUsers();
       }
-    };
-    init();
+      setLoading(false);
+    });
 
-    const loadUsers = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchAllUsers();
-        setUsers(data);
-      } catch (e) {
-        console.error("Error loading users:", e);
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      unsubscribe();
     };
+  }, []);
 
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAllUsers();
+      setUsers(data);
+    } catch (e) {
+      console.error("Error loading users:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     // Close menu when clicking outside
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -73,6 +84,10 @@ export default function UserManagement() {
       case 'admin': return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold">Admin</span>;
       default: return <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">User</span>;
     }
+  }
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-500">Đang tải...</div>;
   }
 
   if (!isAdmin) {
