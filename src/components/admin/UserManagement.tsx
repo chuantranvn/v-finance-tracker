@@ -12,6 +12,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<any>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -24,10 +25,12 @@ export default function UserManagement() {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        setLoggedInUser(null);
         setIsAdmin(false);
         setLoading(false);
         return;
       }
+      setLoggedInUser(user);
 
       const adminStatus = await checkIsAdmin(user.uid);
       setIsAdmin(adminStatus);
@@ -88,6 +91,10 @@ export default function UserManagement() {
 
   if (loading) {
     return <div className="p-6 text-center text-gray-500">Đang tải...</div>;
+  }
+
+  if (!loggedInUser) {
+    return <div className="p-6 text-center text-gray-700 font-medium">Bạn cần đăng nhập để truy cập trang này.</div>;
   }
 
   if (!isAdmin) {
